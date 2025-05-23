@@ -77,11 +77,6 @@ class OccupancyDataset(Dataset):
         # Load NPY files
         self.images_file = images_file
         self.labels_file = labels_file
-        #self.images: NDArray[np.uint8] = np.load(self.images_file, mmap_mode='r')
-        #self.labels: NDArray[np.uint8] = np.load(self.labels_file, mmap_mode='r')
-        
-        # Load labels
-        #self.labels_df: pd.Series[int] = pd.Series(self.labels)
         
         return
 
@@ -117,8 +112,6 @@ class OccupancyDataset(Dataset):
         """
         
         # Get image and label
-        #image: torch.Tensor = torch.tensor(self.images[idx], dtype=torch.float32).to(self.device)
-        #label: torch.Tensor = torch.tensor(self.labels[idx], dtype=torch.float32).to(self.device)
         image = torch.tensor(np.load(self.images_file, mmap_mode='r')[idx], dtype=torch.float32).to(self.device)
         label = torch.tensor(np.load(self.labels_file, mmap_mode='r')[idx], dtype=torch.float32).to(self.device)
         
@@ -182,13 +175,88 @@ def load_dataset(
     return images, labels
 
 
+def simple_resample_dataset(
+    images: NDArray[np.uint8], labels: NDArray[np.uint8], max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT,
+) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+    """
+    Simple resampling to limit the number of samples per occupancy count.
+    
+    Parameters
+    ----------
+    images : NDArray[uint8]
+        Dataset images.
+    labels : NDArray[uint8]
+        Dataset labels.
+    max_samples_per_count : int, optional, default=MAX_SAMPLES_PER_COUNT
+        Maximum number of samples to keep for each occupancy count.
+    
+    Returns
+    -------
+    resampled_images : NDArray[uint8]
+        Resampled images.
+    resampled_labels : NDArray[uint8]
+        Resampled labels.
+    """
+    
+    # Create dataframe for easier manipulation
+    data_df = pd.DataFrame({
+        'index': np.arange(len(labels)),
+        'count': labels,
+    })
+    
+    # Get counts per occupancy level
+    count_distribution = data_df['count'].value_counts().sort_index()
+    print("Original distribution:")
+    print(count_distribution)
+    
+    # Resample each occupancy count
+    resampled_indices = []
+    for count_value in count_distribution.index:
+        
+        # Get all indices for this count
+        count_indices = data_df[data_df['count'] == count_value]['index'].values
+        
+        # If we have more samples than max_samples_per_count, randomly sample
+        if len(count_indices) > max_samples_per_count:
+            
+            selected_indices = np.random.choice(
+                count_indices, 
+                size=max_samples_per_count, 
+                replace=False,
+            )
+            print(f"Count {count_value}: Reduced from {len(count_indices)} to {max_samples_per_count}")
+            
+        else:
+            
+            selected_indices = count_indices
+            print(f"Count {count_value}: Kept all {len(count_indices)} samples")
+            
+        resampled_indices.extend(selected_indices)
+    
+    # Convert to numpy array and sort to maintain some order
+    resampled_indices = np.array(resampled_indices)
+    np.random.shuffle(resampled_indices)
+    
+    # Create resampled datasets
+    resampled_images = images[resampled_indices]
+    resampled_labels = labels[resampled_indices]
+    
+    # Print new distribution
+    new_distribution = pd.Series(resampled_labels).value_counts().sort_index()
+    print("\nNew distribution:")
+    print(new_distribution)
+    
+    return resampled_images, resampled_labels
+
+
 def split_dataset(
     split_data_dir: str = config.DATA_DIR, train_images_file: str = config.TRAIN_IMAGES_FILE,
     train_labels_file: str = config.TRAIN_LABELS_FILE, test_images_file: str = config.TEST_IMAGES_FILE,
     test_labels_file: str = config.TEST_LABELS_FILE, train_ratio: float = config.TRAIN_RATIO,
+    apply_resampling: bool = True, max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT,
 ) -> None:
     """
-    Split data into training and testing sets.
+    Split data into training and testing sets with optional resampling.
     
     Parameters
     ----------
@@ -204,6 +272,10 @@ def split_dataset(
         Path to file containing testing/validation labels.
     train_ratio : float, optional, default=TRAIN_RATIO
         Proportion of data samples to use in training set.
+    apply_resampling : bool, optional, default=True
+        Whether to apply simple resampling to reduce overrepresented counts.
+    max_samples_per_count : int, optional, default=MAX_SAMPLES_PER_COUNT
+        Maximum samples per occupancy count when resampling.
     
     See Also
     --------
@@ -212,16 +284,21 @@ def split_dataset(
     
     # Define transform
     transform = T.Compose([T.Resize((224, 224))])
-
+ 
     # Load dataset
     images: NDArray[np.uint8]
     labels: NDArray[np.uint8]
     images, labels = load_dataset(transform=transform)
     
-    # Get sample weights
+    # Apply resampling if requested
+    if apply_resampling:
+        st.info(f"Applying resampling with max {max_samples_per_count} samples per count...")
+        images, labels = simple_resample_dataset(images, labels, max_samples_per_count)
+    
+    # Get sample weights (rest of the function remains the same)
     y_min = float(labels.min()) - 1
     y_max = float(labels.max()) + 1
-    sample_weights = list(1 - ((labels - y_min) / (y_max - y_min))) # type: ignore
+    sample_weights = list(1 - ((labels - y_min) / (y_max - y_min)))
     train_size = int(len(sample_weights) * train_ratio)
     
     # Split into training and testing sets using weighted random sampling
@@ -236,11 +313,6 @@ def split_dataset(
     os.makedirs(split_data_dir, exist_ok=True)
     np.save(test_images_file, images[test_indices])
     np.save(test_labels_file, labels[test_indices])
-    
-    # Balance training set
-    #train_images: NDArray[np.uint8]
-    #train_labels: NDArray[np.uint8]
-    #train_images, train_labels = balance_dataset(images[train_indices], labels[train_indices])
     
     # Save training set
     np.save(train_images_file, images[train_indices])
@@ -327,21 +399,39 @@ def get_data_loader(
     
     if mode == 'train':
         
-        # Get size of training and validation datasets
-        train_size = len(np.load(train_labels_file, mmap_mode='r'))
-        test_size = len(np.load(test_labels_file, mmap_mode='r'))
+        # Load training and validation datasets
+        train_labels = np.load(train_labels_file, mmap_mode='r')
+        test_labels = np.load(test_labels_file, mmap_mode='r')
+        
+        # Save data distributions
+        data_vis_dir = os.path.join(config.OUTPUT_DIR, "data_vis")
+        os.makedirs(data_vis_dir, exist_ok=True)
+        pd.DataFrame({
+            'id': range(len(train_labels)),
+            'count': train_labels,
+        }).to_csv(
+            os.path.join(data_vis_dir, "training_data_dist.csv"), 
+            index=False,
+        )
+        pd.DataFrame({
+            'id': range(len(test_labels)),
+            'count': test_labels,
+        }).to_csv(
+            os.path.join(data_vis_dir, "validation_data_dist.csv"), 
+            index=False,
+        )
         
         # Create training and validation datasets
         train_dataset = OccupancyDataset(
             images_file=train_images_file,
             labels_file=train_labels_file,
-            indices=np.arange(train_size, dtype=np.int_),
+            indices=np.arange(len(train_labels), dtype=np.int_),
             transform=train_transform,
         )
         val_dataset = OccupancyDataset(
             images_file=test_images_file,
             labels_file=test_labels_file,
-            indices=np.arange(test_size, dtype=np.int_),
+            indices=np.arange(len(test_labels), dtype=np.int_),
             transform=val_transform,
         )
 

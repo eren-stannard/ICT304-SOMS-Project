@@ -24,6 +24,8 @@ import torch
 
 # Data configuration
 SRC_DATA_DIR = os.path.join('ODS', 'datasets')
+APPLY_RESAMPLING = True
+MAX_SAMPLES_PER_COUNT = 250
 
 # Combined data cofigureation
 COMBINED_DATA_DIR = os.path.join('ODS', 'dataset')
@@ -52,7 +54,8 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Output configuration
 OUTPUT_DIR = os.path.join('ODS', 'output')
-MODEL_PATH = os.path.join(OUTPUT_DIR, f"{MODEL_TYPE}_model.pth")
+DATA_VIS_DIR = os.path.join(OUTPUT_DIR, 'data_vis')
+MODEL_PATH = os.path.join(OUTPUT_DIR, f'{MODEL_TYPE}_model.pth')
 
 # Colour configuration using Catppuccin's Latte theme
 COLOUR_PALETTE_FULL = [

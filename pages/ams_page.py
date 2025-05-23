@@ -36,15 +36,31 @@ from streamlit.runtime import uploaded_file_manager as ufm
 from streamlit_webrtc import webrtc_streamer
 from torchvision import tv_tensors
 from torchvision.io import decode_image
+from typing import Literal
 
 # Files used
 import ODS.config as config
-from ODS.autoencoder_model import AutoencoderModel, load_model
+from ODS import autoencoder_model, cnn_model
+from ODS.autoencoder_model import AutoencoderModel
+from ODS.cnn_model import CNNModel
 
 
 class StreamlitCameraPredictor:
+    """Streamlit real-time camera predictor class."""
     
-    def __init__(self, model, camera_id=0, max_points=100) -> None:
+    def __init__(self, model: AutoencoderModel | CNNModel, camera_id: int = 0, max_points: int = 100) -> None:
+        """
+        Streamlit camera predictor constructor.
+        
+        Parameters
+        ----------
+        model : Autoencoder | CNN
+            Model to use for prediction.
+        camera_id : int, optional, default=0
+            Camera device ID.
+        max_points : int, optional, default=100
+            _description_.
+        """
         
         self.model = model
         self.camera_id = camera_id
@@ -63,13 +79,16 @@ class StreamlitCameraPredictor:
         self.transform = T.Compose([
             T.Resize((224, 224)),
             T.ToDtype(torch.float32),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
         ])
         
         return
     
-    def initialize_camera(self) -> bool:
-        """Initialize camera capture"""
+    def initialise_camera(self) -> bool:
+        """Initialise camera capture."""
         
         if self.cap is not None:
             self.cap.release()
@@ -87,10 +106,12 @@ class StreamlitCameraPredictor:
         return True
     
     def capture_frames(self) -> None:
-        """Capture frames in a separate thread"""
+        """Capture frames in a separate thread."""
         
         while self.running and self.cap is not None:
+            
             ret, frame = self.cap.read()
+            
             if ret:
                 # Keep only the latest frame
                 if not self.frame_queue.empty():
@@ -128,26 +149,31 @@ class StreamlitCameraPredictor:
             return None, None
     
     def add_prediction(self, prediction):
-        """Add new prediction to data storage"""
+        """Add new prediction to data storage."""
+        
         current_time = datetime.now()
         self.timestamps.append(current_time)
         self.predictions.append(prediction)
     
     def create_plot(self):
-        """Create Plotly line chart"""
+        """Create Plotly line chart."""
+        
+        # Create figure
+        fig = go.Figure()
+        
         if len(self.predictions) == 0:
-            # Empty plot
-            fig = go.Figure()
+            
             fig.add_trace(go.Scatter(x=[], y=[], mode='lines+markers', name='Predictions'))
+        
         else:
-            fig = go.Figure()
+            
             fig.add_trace(go.Scatter(
                 x=list(self.timestamps),
                 y=list(self.predictions),
                 mode='lines+markers',
                 name='Occupancy Count',
-                line=dict(color='#1f77b4', width=2),
-                marker=dict(size=6)
+                line={'color': '#1f77b4', 'width': 2},
+                marker={'size': 6},
             ))
         
         fig.update_layout(
@@ -156,14 +182,8 @@ class StreamlitCameraPredictor:
             yaxis_title="Count",
             height=400,
             showlegend=True,
-            xaxis=dict(
-                tickformat='%H:%M:%S',
-                showgrid=True
-            ),
-            yaxis=dict(
-                showgrid=True,
-                zeroline=True
-            )
+            xaxis={'tickformat': '%H:%M:%S', 'showgrid': True},
+            yaxis={'showgrid': True, 'zeroline': True},
         )
         
         return fig
@@ -175,42 +195,56 @@ class StreamlitCameraPredictor:
             self.cap.release()
             self.cap = None
 
-def main():
-    st.title("📹 Real-time Occupancy Detection")
-    st.markdown("This app processes camera feed in real-time and displays occupancy predictions.")
+def main() -> None:
+    """Main entry point."""
     
     # Sidebar controls
-    st.sidebar.header("Settings")
+    st.sidebar.subheader("Settings")
     camera_id = st.sidebar.selectbox("Camera ID", [0, 1, 2], index=0)
-    max_points = st.sidebar.slider("Max data points", 50, 500, 100)
-    update_interval = st.sidebar.slider("Update interval (seconds)", 0.1, 2.0, 0.5)
+    max_points = st.sidebar.slider("Max Data Points", 50, 500, 100)
+    update_interval = st.sidebar.slider("Update Interval (Seconds)", 0.1, 2.0, 0.5)
     
-    # Initialize session state
+    # Initialise session state
     if 'predictor' not in st.session_state:
         st.session_state.predictor = None
     if 'capture_thread' not in st.session_state:
         st.session_state.capture_thread = None
     
-    # Model loading (you'll need to adapt this to your model loading)
-    @st.cache_resource
-    def load_trained_model():
-        # Replace this with your actual model loading code
-        # For demo purposes, creating a mock model
-        return load_model()
-    
-    model = load_trained_model()
+    # Load model
+    #@st.cache_resource
+    def load_trained_model(model_type: Literal['autoencoder', 'cnn']) -> AutoencoderModel | CNNModel:
+        """
+        Model loading.
+        
+        Parameters
+        ----------
+        model_type : Literal['autoencoder', 'cnn']
+            Type of model to load.
+        
+        Returns
+        -------
+        model : AutoencoderModel | CNNModel
+            Model to use.
+        """
+        
+        if model_type == 'autoencoder':
+            return autoencoder_model.load_model()
+        
+        else:
+            return cnn_model.load_model()
+    model = load_trained_model('cnn')
     
     # Control buttons
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("▶️ Start Camera", type="primary"):
+        if st.button(":material/videocam: Start Camera", type="primary"):
             if st.session_state.predictor is None:
                 st.session_state.predictor = StreamlitCameraPredictor(
                     model, camera_id, max_points,
                 )
             
-            if st.session_state.predictor.initialize_camera():
+            if st.session_state.predictor.initialise_camera():
                 st.session_state.predictor.running = True
                 st.session_state.capture_thread = threading.Thread(
                     target=st.session_state.predictor.capture_frames,
@@ -219,10 +253,10 @@ def main():
                 st.session_state.capture_thread.start()
                 st.success("Camera started successfully!")
             else:
-                st.error("Failed to initialize camera")
+                st.error("Failed to initialise camera")
     
     with col2:
-        if st.button("⏹️ Stop Camera"):
+        if st.button(":material/videocam_off: Stop Camera"):
             if st.session_state.predictor is not None:
                 st.session_state.predictor.cleanup()
                 st.session_state.predictor = None
@@ -230,7 +264,7 @@ def main():
                 st.success("Camera stopped")
     
     with col3:
-        if st.button("🗑️ Clear Data"):
+        if st.button(":material/delete: Clear Data"):
             if st.session_state.predictor is not None:
                 st.session_state.predictor.timestamps.clear()
                 st.session_state.predictor.predictions.clear()
@@ -304,18 +338,6 @@ def main():
             except Exception as e:
                 st.error(f"Processing error: {str(e)}")
                 break
-    
-    # Instructions
-    st.markdown("""
-    ### Instructions:
-    1. Click **Start Camera** to begin real-time processing
-    2. The camera feed will appear on the left with prediction overlay
-    3. The live chart on the right shows predictions over time
-    4. Use **Stop Camera** to end the session
-    5. Use **Clear Data** to reset the chart data
-    
-    ### Requirements:
-    - Replace the `MockModel` class with your actual model loading code
-    - Ensure your camera is connected and accessible
-    - Adjust the camera ID if needed (0 is usually the default camera)
-    """)
+
+
+main()
