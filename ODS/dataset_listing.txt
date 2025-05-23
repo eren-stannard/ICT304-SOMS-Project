@@ -1,0 +1,7 @@
+archive:
+NewData:
+synthetic_no_people:
+Dataset (Base or Augmented): https://www.kaggle.com/datasets/hamzaiqbal01/3dhbd-3d-humanix-blender-dataset
+handraised: https://www.kaggle.com/datasets/piyushchakarborthy/classroom-images-or-hand-raised-detection-dataset
+count_faces: https://www.kaggle.com/datasets/vin1234/count-the-number-of-faces-present-in-an-image
+synthetic (classroom, computerroom): https://www.kaggle.com/datasets/itsahmad/indoor-scenes-cvpr-2019

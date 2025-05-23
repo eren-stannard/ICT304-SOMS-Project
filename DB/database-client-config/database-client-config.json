@@ -1,0 +1,37 @@
+{
+  "database": {
+    "1747123576149": {
+      "host": "127.0.0.1",
+      "port": 3306,
+      "user": "root",
+      "password": "04283863",
+      "dbType": "MySQL",
+      "name": "SOMS",
+      "advance": {
+        "idleConfig": {
+          "enable": true
+        },
+        "hideSystemSchema": true,
+        "groupingTables": false,
+        "loadMetaDataWhenExpandTreeView": true
+      },
+      "treeFeatures": [],
+      "usingSSH": false,
+      "useSocksProxy": false,
+      "useHTTPProxy": false,
+      "global": true,
+      "savePassword": "Forever",
+      "readonly": false,
+      "sort": 11,
+      "useSSL": false,
+      "fs": {
+        "encoding": "utf8",
+        "showHidden": true
+      },
+      "key": "1747123576149",
+      "connectionKey": "database.connections"
+    }
+  },
+  "nosql": null,
+  "$schema": "http://127.0.0.1:8828/schema.json"
+}

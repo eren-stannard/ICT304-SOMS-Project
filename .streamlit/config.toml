@@ -1,0 +1,49 @@
+# config.toml
+
+#
+#   Smart Occupancy Monitoring System - Client Application
+#
+#   Authors:
+#       Ervin Galas    (34276705)
+#       Sofia Peeva    (35133522)
+#       Eren Stannard  (34189185)
+#
+#   ICT304: AI System Design
+#   Murdoch University
+#
+#   Purpose of File:
+#   Streamlit theme configuration using Catppuccin's Latte colour palette.
+#
+
+
+[theme]
+
+base = "light"                          # Preset Streamlit theme to inherit from
+primaryColor = "#dd7878"                # "Flamingo"
+backgroundColor = "#eff1f5"             # "Base"
+secondaryBackgroundColor = "#dce0e8"    # "Crust"
+textColor = "#4c4f69"                   # "Text"
+linkColor = "#1e66f5"                   # "Blue"
+codeBackgroundColor = "#dce0e8"         # "Crust"
+font = "sans-serif"                     # Sans-serif font style for text (other than code)
+codeFont = "monospace"                  # Monospace font style for code blocks
+headingFont = "sans-serif"              # Sans-serif font style for headings
+# fontFaces = # Not used                # Array of font dicts with keys: font, url, weight
+# baseRadius = # Not used               # Radius of UI element corners
+borderColor = "#ccd0da"                 # "Surface 0"
+showWidgetBorder = false                # Whether to show border around input widgets
+baseFontSize = 16                       # Root font size (px), determines overall element scale
+showSidebarBorder = true                # Whether to show border around sidebar
+
+
+[theme.sidebar]
+
+primaryColor = "#dd7878"                # "Flamingo"
+backgroundColor = "#e6e9ef"             # "Mantle"
+secondaryBackgroundColor = "#ccd0da"    # "Surface 0"
+textColor = "#4c4f69"                   # "Text"
+linkColor = "#1e66f5"                   # "Blue"
+codeBackgroundColor = "#ccd0da"         # "Surface 0"
+font = "sans-serif"                     # Sans-serif font style for text (other than code)
+codeFont = "monospace"                  # Monospace font style for code blocks
+headingFont = "sans-serif"              # Sans-serif font style for headings
