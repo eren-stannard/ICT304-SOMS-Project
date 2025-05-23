@@ -193,7 +193,7 @@ class CNNEnsemble(nn.Module):
         return weighted_pred
 
 
-def load_model(model_path: str = config.MODEL_PATH) -> CNNModel:
+def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> CNNModel:
     """
     Load trained model.
 
@@ -219,10 +219,16 @@ def load_model(model_path: str = config.MODEL_PATH) -> CNNModel:
     try:
         model.load_state_dict(torch.load(model_path, map_location=model.device, mmap=True))
         model.eval()  # Set to evaluation mode
-        st.toast("Model loaded successfully!", icon=":material/check:")
+        if show_log:
+            st.toast("Model loaded successfully!", icon=":material/check:")
+        else:
+            print("Model loaded successfully!")
 
     except RuntimeError as e:
-        st.error(f"Error: Failed to load model: {e}")
+        if show_log:
+            st.error(f"Error: Failed to load model: {e}")
+        else:
+            print(f"Error: Failed to load model: {e}")
         raise e
 
     return model

@@ -180,7 +180,7 @@ class AutoencoderModel(nn.Module):
         return reconstruction, latent, count
 
 
-def load_model(model_path: str = config.MODEL_PATH) -> AutoencoderModel:
+def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> AutoencoderModel:
     """
     Load trained model.
 
@@ -212,7 +212,10 @@ def load_model(model_path: str = config.MODEL_PATH) -> AutoencoderModel:
         model.load_state_dict(torch.load(model_path, map_location=model.device, mmap=True))
     
     except RuntimeError as e:
-        st.error(f"Error: Failed to load model: {e}")
+        if show_log:
+            st.error(f"Error: Failed to load model: {e}")
+        else:
+            print(f"Error: Failed to load model: {e}")
         raise e
     
     return model

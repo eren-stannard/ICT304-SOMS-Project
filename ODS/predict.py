@@ -32,7 +32,7 @@ from ODS.autoencoder_model import AutoencoderModel
 from ODS.cnn_model import CNNModel
 
 
-def predict_image(model: AutoencoderModel | CNNModel, img: str | torch.Tensor | ufm.UploadedFile) -> int:
+def predict_image(model: AutoencoderModel | CNNModel, image: str | torch.Tensor | ufm.UploadedFile) -> int:
     """
     Predict occupancy for a single image.
 
@@ -40,7 +40,7 @@ def predict_image(model: AutoencoderModel | CNNModel, img: str | torch.Tensor | 
     ----------
     model : AutoencoderModel | CNNModel
         Model to use for prediction.
-    img : str | UploadedFile
+    image : str | Tensor | UploadedFile
         Path to input image or Streamlit image file to make prediction on.
 
     Returns
@@ -49,8 +49,8 @@ def predict_image(model: AutoencoderModel | CNNModel, img: str | torch.Tensor | 
         Predicted label outcome for input image.
     """
     
-    if isinstance(img, BytesIO):
-        image = torch.frombuffer(img.getbuffer(), dtype=torch.uint8)
+    if isinstance(image, BytesIO):
+        image = torch.frombuffer(image.getbuffer(), dtype=torch.uint8)
         
     # Load and transform image
     transform = T.Compose([
@@ -69,9 +69,6 @@ def predict_image(model: AutoencoderModel | CNNModel, img: str | torch.Tensor | 
     with torch.no_grad():
         output = model(image)
         pred = round(output.item())
-    
-    st.write(f"Prediction: :primary[**{pred}**] people")
-    st.image(img) # type: ignore
 
     return pred
 
@@ -92,14 +89,13 @@ def predict_camera(model: AutoencoderModel | CNNModel, camera_id: int = 0) -> in
         Predicted occupancy label
     """
     
-    # Open camera
+    # Open camera and capture frame
     enable = st.checkbox("Enable Camera")
     frame = st.camera_input("Capture image", disabled=not enable)
     
     if frame:
         
         st.toast("Camera opened successfully. Press 'q' to quit", icon=":material/linked_camera:")
-        
         pred = predict_image(model, frame)
         
         return pred

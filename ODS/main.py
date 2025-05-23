@@ -40,7 +40,7 @@ def main(
     image: str | None = None,
     camera: bool = False,
     camera_id: int = 0,
-) -> str | dict[str, float | int] | float | int | None:
+) -> None:
     """
     Main entry point.
     
@@ -65,11 +65,6 @@ def main(
     camera_id : int, optional, default=0
         Camera device ID.
     
-    Returns
-    -------
-    output : str | dict[str, float | int] | float | int
-        Path to trained model, evaluation results, or prediction output.
-    
     See Also
     --------
     config.py : Default parameter configuration.
@@ -91,10 +86,8 @@ def main(
         # Train model
         model_path = train_model(train_ratio)
         st.toast(f"Training complete! Model saved to: **{model_path}**", icon=":material/check:")
-        
-        return model_path
     
-    elif mode == 'evaluate':
+    else:
 
         # Check if model exists
         if not os.path.exists(model_path):
@@ -103,63 +96,42 @@ def main(
                 f"Error: Model file not found at **{model_path}**\n" +
                 "Please train a model first or specify a valid model path."
             )
-            
-            return None
         
-        # Load model
-        model = load_model(model_path)
-
-        # Evaluate model
-        results = evaluate_model(
-            model,
-            config.DATA_DIR,
-            config.TEST_LABELS_FILE,
-            config.BATCH_SIZE,
-        )
-
-        # Plot results
-        plot_results(results, model)
-
-        return results
-
-    elif mode == 'predict':
-
-        # Check if model exists
-        if not os.path.exists(model_path):
-            
-            st.error(
-                f"Error: Model file not found at **{model_path}**\n" +
-                "Please train a model first or specify a valid model path."
-            )
-            
-            return None
-
-        # Load model
-        model = load_model(model_path)
-
-        if image:
-            
-            # Predict single image
-            pred = predict_image(model, image)
-            
-            return pred
-
-        elif camera:
-            
-            # Predict from camera feed
-            predict_camera(model, camera_id)
-            
-            return None
-
         else:
             
-            st.error(
-                "Error: No input source specified for prediction\n" +
-                "Please specify either --image <PATH/TO/IMAGE> or --camera"
-            )
-            
-            return None
+            # Load model
+            model = load_model(model_path)
 
-    st.success("Operation completed!")
-    
+            if mode == 'evaluate':
+                
+                # Evaluate model
+                results = evaluate_model(
+                    model,
+                    config.DATA_DIR,
+                    config.TEST_LABELS_FILE,
+                    config.BATCH_SIZE,
+                )
+
+                # Plot results
+                plot_results(results, model)
+            
+            else:
+
+                if image:
+                    
+                    # Predict single image
+                    pred = predict_image(model, image)
+                    
+                    if pred:
+                        st.write(f"Prediction: :primary[**{pred}**] people")
+                        st.image(image)
+
+                elif camera:
+                    
+                    # Predict from camera feed
+                    pred = predict_camera(model, camera_id)
+                    
+                    if pred:
+                        st.write(f"Prediction: :primary[**{pred}**] people")
+        
     return

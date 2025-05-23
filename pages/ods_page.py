@@ -63,15 +63,17 @@ def main() -> None:
         
         # Save training params and disable widget
         with col1:
+            
             if save_train_params_btn():
                 st.session_state.save_train_params=True
         
         with col2:
+            
             run = start_training_btn()
     
     elif args['mode'] == 'evaluate':
         
-        run = True # st.button("Evaluate Model", icon=":material/play_circle:")
+        run = True
         
     elif args['mode'] == 'predict':
         
@@ -176,10 +178,10 @@ def get_train_input() -> dict[str, float | int]:
     )
     params['lr'] = cols[2].number_input(
         label="Learning Rate",
-        min_value=0.000001,
+        min_value=0.0001,
         value=params['lr'],
-        step=0.000001,
-        format='%0.6f',
+        step=0.0001,
+        format='%0.4f',
         help="How much model parameters are updated after each training batch",
         disabled=st.session_state.save_train_params,
         icon=":material/speed:",

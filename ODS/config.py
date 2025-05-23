@@ -44,8 +44,8 @@ MODEL_TYPE = 'cnn'
 
 # Training configuration
 BATCH_SIZE = 32
-NUM_EPOCHS = 10
-LEARNING_RATE = 0.0001
+NUM_EPOCHS = 20
+LEARNING_RATE = 0.0005
 TRAIN_RATIO = 0.8
 
 ## Autoencoder configuration
