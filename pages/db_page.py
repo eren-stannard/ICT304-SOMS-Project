@@ -50,7 +50,7 @@ def run_query(query: str) -> Any:
         return cur.fetchall()
 
 # Perform query
-#df = run_query("DESCRIBE occupancyrecords;")
+df = run_query("DESCRIBE occupancyrecords;")
 
 # Print results
-#st.write(pd.DataFrame(df))
+st.write(pd.DataFrame(df))

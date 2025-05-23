@@ -2,7 +2,7 @@
 
 SOMS Client Application
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_red.svg)](https://ict304-soms.streamlit.app/)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_red.svg)](https://ict304-soms-project.streamlit.app/)
 
 ### How to run it on your own machine
 
@@ -27,5 +27,5 @@ SOMS Client Application
    OR via URL browser
 
    ```
-   https://ict304-soms.streamlit.app/
+   https://ict304-soms-project.streamlit.app/
    ```

@@ -167,7 +167,7 @@ st.logo(image=os.path.join("assets", "monitoring_icon.png"))
 # Sidebar links to GitHub repositories
 st.sidebar.link_button(
     label="GitHub Repository (SOMS)",
-    url="https://github.com/eren-stannard/ICT304_SOMS",
+    url="https://github.com/eren-stannard/ICT304-SOMS-Project",
     type='primary',
     icon=":material/folder_code:",
     use_container_width=True,
