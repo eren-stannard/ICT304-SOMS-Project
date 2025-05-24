@@ -31,7 +31,7 @@ from typing import Literal
 
 # Files used
 import ODS.config as config
-from ODS.data_augmentation import balance_dataset, plot_data_distributions
+from ODS.data_augmentation import plot_data_distributions
 from ODS.combine_datasets import combine_datasets
 
 
@@ -53,7 +53,7 @@ class OccupancyDataset(Dataset):
             Path to .npy images file.
         labels_file : str
             Path to .npy labels file.
-        indices : NDArray[int]
+        indices : NDArray[int_]
             Indices of data samples to use for dataset.
         transform : Compose | None, optional, default=None
             Transformations to apply to images.
@@ -74,7 +74,7 @@ class OccupancyDataset(Dataset):
         # Indices
         self.indices: NDArray[np.int_] = indices
         
-        # Load NPY files
+        # NPY files
         self.images_file = images_file
         self.labels_file = labels_file
         
@@ -101,7 +101,7 @@ class OccupancyDataset(Dataset):
         Parameters
         ----------
         idx : int
-            Index location of the sample.
+            Index location of sample.
 
         Returns
         -------
@@ -133,19 +133,21 @@ def load_dataset(
     Parameters
     ----------
     src_data_dir : str, optional, default=SRC_DATA_DIR
+        Path to source dataset directory.
     combined_data_dir : str, optional, default=COMBINED_DATA_DIR
+        Path to output combined dataset directory.
     images_file : str, optional, default=COMBINED_IMAGES_FILE
         Path to file containing images.
     labels_file : str, optional, default=COMBINED_LABELS_FILE
         Path to file containing labels.
-    transform : Compose | Resize | None, optional, default=None
+    transform : Compose | None, optional, default=None
         Transformations to apply to images.
     
     Returns
     -------
-    images : ndarray[int]
+    images : NDArray[uint8]
         Images array.
-    labels : ndarray[int]
+    labels : NDArray[uint8]
         Labels array.
     
     See Also
@@ -200,7 +202,7 @@ def simple_resample_dataset(
     
     # Create dataframe for easier manipulation
     data_df = pd.DataFrame({
-        'index': np.arange(len(labels)),
+        'id': np.arange(len(labels)),
         'count': labels,
     })
     
@@ -214,7 +216,7 @@ def simple_resample_dataset(
     for count_value in count_distribution.index:
         
         # Get all indices for this count
-        count_indices = data_df[data_df['count'] == count_value]['index'].values
+        count_indices = data_df[data_df['count'] == count_value]['id'].values
         
         # If we have more samples than max_samples_per_count, randomly sample
         if len(count_indices) > max_samples_per_count:
@@ -309,21 +311,20 @@ def split_dataset(
     )
     test_indices: NDArray[np.int_] = indices[np.isin(indices, train_indices, invert=True)]
     
-    # Save testing set
+    # Save trainng and testing sets
     os.makedirs(split_data_dir, exist_ok=True)
+    np.save(train_images_file, images[train_indices])
+    np.save(train_labels_file, labels[train_indices])
     np.save(test_images_file, images[test_indices])
     np.save(test_labels_file, labels[test_indices])
     
-    # Save training set
-    np.save(train_images_file, images[train_indices])
-    np.save(train_labels_file, labels[train_indices])
-    
     # Visualise data distribution
-    fig = plot_data_distributions(
+    plot_data_distributions(
         [pd.Series(labels[train_indices]), pd.Series(labels[test_indices])],
         ["Training", "Validation"],
+        title="Data Distribution of Training and Testing Sets",
+        return_fig=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
     
     return
 
@@ -403,23 +404,21 @@ def get_data_loader(
         train_labels = np.load(train_labels_file, mmap_mode='r')
         test_labels = np.load(test_labels_file, mmap_mode='r')
         
-        # Save data distributions
+        # Create data distribution directory
         data_vis_dir = os.path.join(config.OUTPUT_DIR, "data_vis")
         os.makedirs(data_vis_dir, exist_ok=True)
-        pd.DataFrame({
-            'id': range(len(train_labels)),
-            'count': train_labels,
-        }).to_csv(
-            os.path.join(data_vis_dir, "training_data_dist.csv"), 
-            index=False,
-        )
-        pd.DataFrame({
-            'id': range(len(test_labels)),
-            'count': test_labels,
-        }).to_csv(
-            os.path.join(data_vis_dir, "validation_data_dist.csv"), 
-            index=False,
-        )
+        
+        pd.Series(
+            data=train_labels,
+            index=pd.RangeIndex(len(train_labels), name='id'),
+            name='count',
+        ).to_csv(os.path.join(data_vis_dir, "training_data_dist.csv"))
+        
+        pd.Series(
+            data=test_labels,
+            index=pd.RangeIndex(len(test_labels), name='id'),
+            name='count',
+        ).to_csv(os.path.join(data_vis_dir, "validation_data_dist.csv"))
         
         # Create training and validation datasets
         train_dataset = OccupancyDataset(

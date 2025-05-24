@@ -19,34 +19,60 @@
 
 # Libraries used
 import mysql.connector
+import mysql.connector.types as mysqlt
 import pandas as pd
 import streamlit as st
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
-from typing import Any
 
 
 @st.cache_resource
 def init_connection() -> PooledMySQLConnection | MySQLConnectionAbstract:
+    """
+    Initialise connection to SOMS MySQL database.
+    
+    Returns
+    -------
+    conn : PooledMySQLConnection | MySQLConnectionAbstract
+        MySQL database connection.
+    """
+    
     return mysql.connector.connect(**st.secrets.db_credentials)
 
+
 @st.cache_data(ttl=600)
-def run_query(query: str) -> Any:
+def run_query(query: str) -> list[mysqlt.RowType | dict[str, mysqlt.RowItemType]]:
+    """
+    Query SOMS database with MySQL query.
+    
+    Parameters
+    ----------
+    query : str
+        SQL query.
+    
+    Returns
+    -------
+    rows : list[RowType | dict[str, RowItemType]]
+        Result of query.
+    """
+    
+    # Connect to SOMS database
     conn = init_connection()
+    
     with conn.cursor(dictionary=True) as cur:
+        
         cur.execute(query)
+        
         return cur.fetchall()
 
-# Get query
-query = st.text_area(
-    "Enter SQL query",
-)
-st.write(f"Query:\n{query}")
 
-if len(query) > 0:
+# Get input query
+query = st.text_area("Enter SQL query:")
+
+if query:
     
     # Perform query
-    df = run_query(query)
+    result = run_query(query)
 
     # Print results
-    st.write(pd.DataFrame(df))
+    st.write(pd.DataFrame(result))

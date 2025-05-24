@@ -30,14 +30,18 @@ def main() -> None:
     """Main entry point."""
     
     # Initialise session state variables
-    if 'save_train_params' not in st.session_state:
-        st.session_state.save_train_params = False
-    if 'start_training' not in st.session_state:
-        st.session_state.start_training = False
+    if 'training_confirmed' not in st.session_state:
+        st.session_state.training_confirmed = False
+    
+    # Get operation mode input
+    mode = get_mode()
+    
+    if not mode:
+        return
     
     # Arguments
     args = {
-        'mode': None,
+        'mode': mode,
         'model_path': config.MODEL_PATH,
         'batch_size': config.BATCH_SIZE,
         'epoch': config.NUM_EPOCHS,
@@ -48,59 +52,18 @@ def main() -> None:
         'camera_id': 0,
     }
     
-    # Get operation mode input
-    args['mode'] = get_mode_input()
-    
-    # Execute mode according to input option
-    run = False
-    
-    if args['mode'] == 'train':
-        
-        # Get training parameters/arguments input
-        args.update(get_train_input())
-        
-        col1, _, col2 = st.columns(3, gap='large')
-        
-        # Save training params and disable widget
-        with col1:
-            
-            if save_train_params_btn():
-                st.session_state.save_train_params=True
-        
-        with col2:
-            
-            run = start_training_btn()
-    
-    elif args['mode'] == 'evaluate':
-        
-        run = True
-        
-    elif args['mode'] == 'predict':
-        
-        pred_option = get_predict_input()
-        
-        if pred_option == 'image':
-            
-            # Upload image file for prediction
-            args['image'] = st.file_uploader("Upload image", type=['jpg', 'jpeg', 'png'])
-            
-            if args['image'] is not None:
-                run = True
-        
-        elif pred_option == 'camera':
-            
-            args['camera'] = True
-            run= True
-    
-    if run:
+    # Execute based on mode
+    if mode == 'train':
+        training_mode(**args)
+    elif mode == 'evaluate':
         forward_ods(**args)
-        st.session_state.save_train_params = False
-        st.session_state.start_training = False
+    elif mode == 'predict':
+        prediction_mode(**args)
     
     return
 
 
-def get_mode_input() -> Literal['train', 'evaluate', 'predict'] | str | None:
+def get_mode() -> Literal['train', 'evaluate', 'predict'] | str | None:
     """
     Display segmented control widget for user input.
     Get input for system operation mode selection (train, evaluate, or predict).
@@ -108,184 +71,184 @@ def get_mode_input() -> Literal['train', 'evaluate', 'predict'] | str | None:
     Returns
     -------
     mode : Literal['train', 'evaluate', 'predict'] | None
-        Selected mode.
+        Selected operation mode.
     """
     
     # Mode options
     option_map = {
-        'train': ":material/model_training: Train",
-        'evaluate': ":material/readiness_score: Evaluate",
-        'predict': ":material/batch_prediction: Predict",
+        'train': ":material/model_training: Train Model",
+        'evaluate': ":material/readiness_score: Evaluate Model",
+        'predict': ":material/batch_prediction: Make Predictions",
     }
 
-    # Input selection widget
+    # Help string
     help_str = (
         f"**{option_map['train']}**: Train model  \n" +
-        f"**{option_map['evaluate']}**: Evaluate trained model  \n" +
-        f"**{option_map['predict']}**: Predict occupancy from input image data"
+        f"**{option_map['evaluate']}**: Evaluate trained model performance  \n" +
+        f"**{option_map['predict']}**: Predict occupancy from input image"
     )
-    mode = st.segmented_control(
+    
+    # Input selection widget
+    return st.segmented_control(
         label="Select operation mode:",
         options=option_map.keys(),
         format_func=lambda option: option_map[option],
         help=help_str,
     )
-    
-    return mode
 
 
-def get_train_input() -> dict[str, float | int]:
+def training_mode(**kwargs) -> None:
     """
     Display widget for user input.
     Get input for model training parameters/arguments selection.
 
-    Returns
-    -------
-    params : dict[str, float | int]
-        Selected training parameters.
+    Parameters
+    ----------
+    **kwargs : dict[str, float | int]
+        Training parameters.
     
     See Also
     --------
     ODS/config.py : Default ODS parameter configuration.
     """
     
-    # Training parameter arguments and config defaults
-    params = {
-        'batch_size': config.BATCH_SIZE,
-        'epoch': config.NUM_EPOCHS,
-        'lr': config.LEARNING_RATE,
-        'train_ratio': config.TRAIN_RATIO,
-    }
-    
+    # Get training parameter input
     st.write(":primary[:material/settings:] Enter model training parameters:")
-    cols = st.columns(4)
-    params['batch_size'] = cols[0].number_input(
-        label="Batch Size",
-        min_value=1,
-        max_value=1024,
-        value=params['batch_size'],
-        help="Number of data samples to load per batch",
-        disabled=st.session_state.save_train_params,
-        icon=":material/stacks:",
-    )
-    params['epoch'] = cols[1].number_input(
-        label="Epoch",
-        min_value=1,
-        value=params['epoch'],
-        help="Number of iterations for training model",
-        disabled=st.session_state.save_train_params,
-        icon=":material/laps:",
-    )
-    params['lr'] = cols[2].number_input(
-        label="Learning Rate",
-        min_value=0.0001,
-        value=params['lr'],
-        step=0.0001,
-        format='%0.4f',
-        help="How much model parameters are updated after each training batch",
-        disabled=st.session_state.save_train_params,
-        icon=":material/speed:",
-    )
-    params['train_ratio'] = cols[3].number_input(
-        label="Train Size",
-        min_value=0.5,
-        value=params['train_ratio'],
-        step=0.05,
-        format='%0.2f',
-        help="Proportion of data samples to use for training dataset",
-        disabled=st.session_state.save_train_params,
-        icon=":material/percent:",
-    )
     
-    return params
-
-
-def save_train_params_btn() -> bool:
-    """
-    Display button widget for user input.
-    Click button to save model training parameters.
-
-    Returns
-    -------
-    save : bool
-        If True, save model training parameters.
-    """
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Disable parameter editing if saved. Adapted from Shawn_Pereira's (2023) solution at:
-    # https://discuss.streamlit.io/t/how-to-disable-a-preceding-widget-using-a-button-without-clicking-it-twice/35367/2
-    st.button(
-        label="Selection Saved" if st.session_state.save_train_params else "Confirm Selection",
-        key="launch",
-        on_click=btn_callbk,
-        kwargs={'key': 'save_train_params'},
-        icon=":material/save:",
-        disabled=st.session_state.save_train_params,
-        use_container_width=True,
-    )
+    with col1:
+        kwargs['batch_size'] =st.number_input(
+            label="Batch Size",
+            min_value=1,
+            max_value=1024,
+            value=config.BATCH_SIZE,
+            help="Number of data samples to load in each batch",
+            disabled=st.session_state.training_confirmed,
+            icon=":material/stacks:",
+        )
     
-    return st.session_state.save_train_params
-
-
-def get_predict_input() -> Literal['image', 'camera'] | str | None:
-    """
-    Display radio buttons widget for user input.
-    Get input for prediction mode selection (image or camera feed).
-
-    Returns
-    -------
-    pred_mode : Literal['image', 'camera'] | None
-        Selected prediction mode option.
-    """
+    with col2:
+        kwargs['epoch'] = st.number_input(
+            label="Epoch",
+            min_value=1,
+            value=config.NUM_EPOCHS,
+            help="Number of iterations for training model",
+            disabled=st.session_state.training_confirmed,
+            icon=":material/laps:",
+        )
+        
+    with col3:
+        kwargs['lr'] = st.number_input(
+            label="Learning Rate",
+            min_value=0.0001,
+            value=config.LEARNING_RATE,
+            step=0.0001,
+            format='%0.4f',
+            help="How much model parameters are updated after each training batch",
+            disabled=st.session_state.training_confirmed,
+            icon=":material/speed:",
+        )
     
-    # Mode options
-    option_map = {
-        'image': ":material/add_a_photo: Image",
-        'camera': ":material/video_camera_back: Camera Feed",
-    }
+    with col4:
+        kwargs['train_ratio'] = st.number_input(
+            label="Train Size",
+            min_value=0.5,
+            max_value=0.99,
+            value=config.TRAIN_RATIO,
+            step=0.01,
+            format='%0.2f',
+            help="Proportion of data samples to use for training dataset",
+            disabled=st.session_state.training_confirmed,
+            icon=":material/percent:",
+        )
     
-    # Get prediction mode selection input
-    pred_mode = st.segmented_control(
-        label="Prediction mode:",
-        options=option_map.keys(),
-        format_func=lambda option: option_map[option],
-    )
+    # Get training confirmation input
+    col1, col2 = st.columns(2)
     
-    return pred_mode
-
-
-def start_training_btn() -> bool:
-    """
-    Display button widget for user input.
-    Click button to start model training with selected parameters.
-
-    Returns
-    -------
-    train : bool
-        If True, start model training.
-    """
+    with col1:
+        if st.button(
+            label="Confirm Parameters" if not st.session_state.training_confirmed else "Parameters Confirmed",
+            icon=":material/save:",
+            disabled=st.session_state.training_confirmed,
+            use_container_width=True,
+        ):
+            st.session_state.training_confirmed = True
     
-    st.button(
-        label="Model Training" if st.session_state.start_training else "Train Model",
-        on_click=btn_callbk,
-        kwargs={'key': 'start_training'},
-        type='primary',
-        icon=":material/play_circle:",
-        disabled=st.session_state.start_training or not st.session_state.save_train_params,
-        use_container_width=True,
-    )
+    with col2:
+        start_training = st.button(
+            label="Start Training",
+            type='primary',
+            icon=":material/play_circle:",
+            disabled=not st.session_state.training_confirmed,
+            use_container_width=True,
+        )
     
-    return st.session_state.start_training
-
-
-def btn_callbk(key: str) -> None:
-    """Button click callback function."""
-    
-    st.session_state[key] = not st.session_state[key]
+    if start_training:
+        with st.spinner("Training model...", show_time=True):
+            forward_ods(**kwargs)
+        
+        st.session_state.training_confirmed = False
+        st.toast("Training completed!", icon=":material/celebration:")
     
     return
 
 
-if __name__ == "__main__":
+def prediction_mode(**kwargs) -> None:
+    """
+    Display radio buttons widget for user input.
+    Get input for prediction mode selection (image or camera feed).
+
+    Parameters
+    ----------
+    **kwargs : dict[str, float | int]
+        Prediction parameters.
+    """
     
-    # Get operation mode selection input
+    # Mode options
+    option_map = {
+        'image': ":material/add_a_photo: Upload Image",
+        'camera': ":material/video_camera_back: Use Camera",
+    }
+    
+    # Get prediction mode selection input
+    pred_mode = st.segmented_control(
+        label="Select prediction input mode:",
+        options=option_map.keys(),
+        format_func=lambda option: option_map[option],
+    )
+    
+    if not pred_mode:
+        return
+    
+    if pred_mode == 'image':
+        
+        img_file = st.file_uploader(
+            label="Upload image",
+            type=['jpg', 'jpeg', 'png'],
+            help="Upload an image file for prediction",
+        )
+        
+        if img_file:
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.image(img_file, caption="Uploaded Image", use_container_width=True)
+            
+            with col2:
+                if st.button("Predict Occupancy", type='primary', icon=":material/frame_inspect:"):
+                    kwargs['image'] = img_file
+                    
+                    with st.spinner("Predicting occupancy..."):
+                        forward_ods(**kwargs)
+    
+    elif pred_mode == 'camera':
+        if st.button("Open Camera", type='primary', icon=":material/camera"):
+            kwargs['camera'] = True
+            forward_ods(**kwargs)
+
+    return
+
+
+if __name__ == "__main__":
     main()

@@ -19,8 +19,10 @@
 
 # Libraries used
 import numpy as np
+import os
 import pandas as pd
 import plotly.express as px
+import re
 import streamlit as st
 import time
 import torch
@@ -34,10 +36,7 @@ from ODS.autoencoder_model import AutoencoderModel
 from ODS.cnn_model import CNNModel
 
 
-def evaluate_model(
-    model: AutoencoderModel | CNNModel, data_dir: str = config.DATA_DIR,
-    labels_file: str = config.TEST_LABELS_FILE, batch_size: int = config.BATCH_SIZE,
-) -> dict[str, float | int]:
+def evaluate_model(model: AutoencoderModel | CNNModel, batch_size: int = config.BATCH_SIZE) -> dict[str, float | int]:
     """
     Evaluate a trained model on test data.
 
@@ -45,10 +44,6 @@ def evaluate_model(
     ----------
     model : AutoencoderModel | CNNModel
         Trained model.
-    data_dir : str, optional, default=DATA_DIR
-        Directory containing test data.
-    labels_file : str, optional, default=TEST_LABELS_FILE
-        Path to test labels file.
     batch_size : int, optional, default=BATCH_SIZE
         Batch size for evaluation.
     
@@ -62,11 +57,14 @@ def evaluate_model(
     config.py : Default parameter configuration.
     """
     
+    # Model name str
+    model_name = " ".join(re.split(r"(?=Model)", model.__class__.__name__))
+    
     # Set model to evaluation mode
     model.eval()
     
     # Display msg
-    prog_msg = f"Evaluating :primary[**{config.MODEL_TYPE}**] model (using device: :primary[**{model.device}**])"
+    prog_msg = f"Evaluating :primary[**{model_name}**] model (using device: :primary[**{model.device}**])"
 
     # Load test data
     val_loader = get_data_loader(batch_size=batch_size, mode='evaluate')
@@ -111,11 +109,14 @@ def evaluate_model(
         'true_counts': true_counts,
         'predicted_counts': predicted_counts,
     }
+    
+    # Plot results
+    plot_results(results, model_name)
 
     return results
 
 
-def plot_results(results: dict[str, float | int], model: AutoencoderModel | CNNModel) -> None:
+def plot_results(results: dict[str, float | int], model_name: str) -> None:
     """
     Plot evaluation results.
 
@@ -139,7 +140,7 @@ def plot_results(results: dict[str, float | int], model: AutoencoderModel | CNNM
     results_df['Error'] = abs(results_df['True Count'] - results_df['Predicted Count'])
     
     # Display metrics
-    st.subheader(f"{model.__class__.__name__} Performance")
+    st.subheader(f"{model_name} Performance")
     cols = st.columns(5)
     cols[0].metric(
         "MSE", f"{results['mse']:.3f}",
@@ -157,17 +158,13 @@ def plot_results(results: dict[str, float | int], model: AutoencoderModel | CNNM
         "R²", f"{results['r2']:.3f}",
         help="Coefficient of Determination (R²-Score)",
     )
-    #_, col, _ = st.columns([1.5, 1, 1.5])
     cols[4].metric(
         "Inference Time", f"{results['avg_inference_time_ms']:.3f}",
         help="Average time (ms) to make prediction on image",
     )
     
-    x_min, x_max = results_df['True Count'].min(), results_df['True Count'].max()
-    y_min, y_max = results_df['Predicted Count'].min(), results_df['Predicted Count'].max()
-    
-    # Scatter plot
-    plot = px.scatter(
+    # Create scatter plot
+    fig = px.scatter(
         results_df,
         x='True Count',
         y='Predicted Count',
@@ -176,8 +173,13 @@ def plot_results(results: dict[str, float | int], model: AutoencoderModel | CNNM
         opacity=0.35,
         trendline='ols',
         trendline_color_override=st.get_option("theme.primaryColor"),
-        title=f"{model.__class__.__name__} Predicted Versus True Values",
+        title=f"{model_name} Predicted Versus True Values",
     )
-    st.plotly_chart(plot, use_container_width=True)
+    
+    # Display figure
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Save results to file
+    results_df.to_csv(os.path.join(config.DATA_VIS_DIR, "evaluation_results.csv"), index=False)
 
     return

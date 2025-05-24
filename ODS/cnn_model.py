@@ -45,7 +45,7 @@ class CNNModel(nn.Module):
 
         # Use pretrained weights
         if pretrained:
-            weights = models.ResNet18_Weights.DEFAULT
+            weights = models.ResNet50_Weights.DEFAULT
             self.preprocess = weights.transforms()
             
         else:
@@ -53,8 +53,7 @@ class CNNModel(nn.Module):
             self.preprocess = None
         
         # Use a pretrained ResNet50 as backbone
-        # It's a good balance between accuracy and efficiency
-        self.backbone = models.resnet18(weights=weights)
+        self.backbone = models.resnet50(weights=weights)
 
         # Freeze early layers to preserve general features and prevent overfitting
         if freeze_backbone:
@@ -201,11 +200,19 @@ def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> CN
     ----------
     model_path : str, optional, default=MODEL_PATH
         Path to trained model file.
-
+    show_log : bool, optional, default=True
+        Whether to show error log in Streamlit. If False, only prints to terminal.
+        Used for compatibility with Streamlit caching.
+    
     Returns
     -------
     model : CNNModel
         Trained model.
+    
+    Raises
+    ------
+    e : RuntimeError
+        Failed to load model.
 
     See Also
     --------
@@ -218,11 +225,7 @@ def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> CN
     # Try to load weights
     try:
         model.load_state_dict(torch.load(model_path, map_location=model.device, mmap=True))
-        model.eval()  # Set to evaluation mode
-        if show_log:
-            st.toast("Model loaded successfully!", icon=":material/check:")
-        else:
-            print("Model loaded successfully!")
+        model.eval()
 
     except RuntimeError as e:
         if show_log:

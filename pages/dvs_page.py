@@ -29,6 +29,11 @@ import ODS.config as config
 from ODS.data_augmentation import plot_data_distributions
 
 
+# Data visualisations paths
+data_vis_dir = config.DATA_VIS_DIR
+eval_results = os.path.join(data_vis_dir, "evaluation_results.csv")
+optim_results = os.path.join(data_vis_dir, "optimisation_results.csv")
+
 # Save data distributions
 if all([os.path.exists(f) for f in [config.TRAIN_LABELS_FILE, config.TEST_LABELS_FILE]]):
     

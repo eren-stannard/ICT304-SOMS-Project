@@ -188,16 +188,19 @@ def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> Au
     ----------
     model_path : str, optional, default=MODEL_PATH
         Path to trained model file.
-
-    Raises
-    ------
-    e : RuntimeError
-        Failed to load model.
-
+    show_log : bool, optional, default=True
+        Whether to show error log in Streamlit. If False, only prints to terminal.
+        Used for compatibility with Streamlit caching.
+    
     Returns
     -------
     model : AutoencoderModel
         Trained model.
+    
+    Raises
+    ------
+    e : RuntimeError
+        Failed to load model.
     
     See Also
     --------
@@ -210,7 +213,8 @@ def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> Au
     # Try to load weights
     try:
         model.load_state_dict(torch.load(model_path, map_location=model.device, mmap=True))
-    
+        model.eval()
+        
     except RuntimeError as e:
         if show_log:
             st.error(f"Error: Failed to load model: {e}")

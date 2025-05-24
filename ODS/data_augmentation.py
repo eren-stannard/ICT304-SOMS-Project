@@ -12,13 +12,14 @@
     Murdoch University
     
     Purpose of File:
-    Data augmentation functions for creating a uniformly distributed occupancy dataset.
+    Data augmentation and resampling functions for uniformly distributing dataset.
 
 """
 
 
 # Libraries used
 import numpy as np
+import os
 import pandas as pd
 import plotly.graph_objects as go
 import random
@@ -28,7 +29,6 @@ import torchvision.transforms.v2 as T
 from numpy.typing import NDArray
 from plotly.subplots import make_subplots
 from stqdm import stqdm
-
 
 # Files used
 import ODS.config as config
@@ -42,14 +42,14 @@ def augment_image(
     
     Parameters
     ----------
-    image : ndarray[int]
+    image : NDArray[uint8]
         Input image.
     adjustment_range : tuple[float, float], optional, default=(0.8, 1.2)
         Range for augmentation adjustment factors.
     
     Returns
     -------
-    image : ndarray[int] | None
+    image : NDArray[uint8] | None
         Augmented image.
     """
     
@@ -120,15 +120,31 @@ def create_uniform_distribution(min_val: int = 0, max_val: int = 50, total_sampl
 
 
 def balance_dataset(train_images: NDArray[np.uint8], train_labels: NDArray[np.uint8]) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+    """
+    Resample training dataset by balancing distribution of data.
+    
+    Parameters
+    ----------
+    train_images : NDArray[uint8]
+        Training dataset images.
+    train_labels : NDArray[uint8]
+        Training dataset labels.
+    
+    Returns
+    -------
+    new_train_images : NDArray[uint8]
+        Balanced training dataset images.
+    new_train_labels : NDArray[uint8]
+        Balanced training dataset labels.
+    """
     
     # Load data subset labels
     labels_df = pd.Series(train_labels)
     
     # Create a dictionary of current counts
     current_counts = labels_df.value_counts().to_dict()
-    min_count, max_count = labels_df.min(), labels_df.max()
-    labels_df.quantile(0.75)
-    min_val, max_val = int(min_count * 1.5), int((max_count + labels_df.quantile(0.75)) / 2)
+    min_val: int = labels_df.min()
+    max_val: int = int((labels_df.max() + labels_df.quantile(0.75)) / 2)
 
     # Get uniform distribution
     target_distribution = create_uniform_distribution(
@@ -202,20 +218,45 @@ def balance_dataset(train_images: NDArray[np.uint8], train_labels: NDArray[np.ui
     new_train_labels: NDArray[np.uint8] = np.array(new_labels['count'], dtype=np.uint8)
     
     # Visualise data distributions
-    fig = plot_data_distributions(
+    plot_data_distributions(
         [labels_df, new_labels_df],
         ["Original", "Balanced"],
         title="Data Distribution of Original and Balanced Training Data",
-        xbins_range=(min_count, max_count),
+        return_fig=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
 
     return new_train_images, new_train_labels
 
 
 def plot_data_distributions(
-    data: list[pd.Series], titles: list[str], title: str | None = None, xbins_range: tuple[int, int] | None = None,
-) -> go.Figure:
+    data: list[pd.Series], titles: list[str], title: str | None = None,
+    xbins_range: tuple[int, int] | None = None, return_fig: bool = True,
+) -> go.Figure | None:
+    """
+    Plot data distributions of given datasets.
+    
+    Parameters
+    ----------
+    data : list[Series]
+        List of datasets' labels.
+    titles : list[str]
+        List of dataset names.
+    title : str | None, optional, default=None
+        Title of figure.
+    xbins_range : tuple[int, int] | None, optional, default=None
+        Range of bins to use for distribution plot.
+    return_fig : bool, optional, default=True
+        Whether to return the figure without displaying it. If False, figure is displayed.
+    
+    Returns
+    -------
+    fig : Figure | None
+        Figure of distribution plots if `return_fig` is True, otherwise None.
+    """
+    
+    # Create data distribution directory
+    data_vis_dir = config.DATA_VIS_DIR
+    os.makedirs(data_vis_dir, exist_ok=True)
     
     # Plot heights
     box_height: float = 0.1 * len(data) if len(data) < 5 else 0.4
@@ -230,17 +271,24 @@ def plot_data_distributions(
         specs=[[{'type': 'box'}], [{'type': 'xy'}]],
         )
     
+    # Get colour palette
     colours = config.COLOUR_PAIR if len(data) <= 2 else config.COLOUR_PALETTE
     
     for d, t, c in zip(data, titles, colours):
         
+        # Save distribution
+        d.to_csv(os.path.join(data_vis_dir, f"dataset_{t}_data_dist.csv"))
+        
+        # Add distribution histogram and box plot to figure
         dist, dist_box = add_distribution(d, t, c)
         fig.add_trace(dist, row=2, col=1)
         fig.add_trace(dist_box, row=1, col=1)
     
+    # Update axis titles
     fig.update_xaxes(title_text="Image Occupancy", row=2, col=1)
     fig.update_yaxes(title_text="Frequency", row=2, col=1)
     
+    # Update figure layout
     fig.update_layout(
         barmode='overlay',
         legend={'x': 1, 'xanchor': 'right', 'y': 1 - box_height, 'yanchor': 'top'},
@@ -248,17 +296,44 @@ def plot_data_distributions(
         title=title or "Comparison of Data Distributions",
     )
     
+    # Set xbins range to bin all x-axis samples if not specified otherwise
     if xbins_range is None:
         xbins_range = (min([d.min() for d in data]), max([d.max() for d in data]) + 1)
     
+    # Update xbins
     fig.update_traces(xbins={'start': xbins_range[0], 'end': xbins_range[1] + 1, 'size': 1}, row=2, col=1)
     
-    return fig
+    if return_fig:
+        return fig
+    
+    # Display figure without returning it
+    st.plotly_chart(fig, use_container_width=True)
+    
+    return
 
 
 def add_distribution(data: pd.Series, title: str, colour: str) -> tuple[go.Histogram, go.Box]:
+    """
+    Plot a histogram and box plot for a single dataset distribution.
     
-    # Visualise data distribution
+    Parameters
+    ----------
+    data : Series
+        Dataset to plot distribution.
+    title : str
+        Dataset name.
+    colour : str
+        Colour to use for plots.
+    
+    Returns
+    -------
+    dist : Histogram
+        Histogram of dataset distribution.
+    dist_box : Box
+        Box plot of dataset distribution.
+    """
+    
+    # Plot distribution histogram
     dist = go.Histogram(
         x=data,
         marker={
@@ -268,6 +343,8 @@ def add_distribution(data: pd.Series, title: str, colour: str) -> tuple[go.Histo
         },
         name=title,
     )
+    
+    # Plot distribution box plot
     dist_box = go.Box(
         x=data,
         boxmean='sd',

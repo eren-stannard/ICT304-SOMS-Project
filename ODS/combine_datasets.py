@@ -75,8 +75,6 @@ def combine_datasets(
     labels: NDArray[np.uint8] | list[NDArray[np.uint8]] = []
     
     labels_dfs: list[pd.Series[int]] = []
-    min_counts: list[int] = []
-    max_counts: list[int] = []
     
     for dataset in datasets:
         
@@ -111,15 +109,15 @@ def combine_datasets(
         images.append(new_images)
         labels.append(new_labels)
         
-        # Save distribution
-        labels_df = pd.Series(data=new_labels, name='count')
-        labels_dfs.append(labels_df)
-        min_counts.append(labels_df.min())
-        max_counts.append(labels_df.max())
+        # Append dataset labels to list
+        labels_dfs.append(pd.Series(
+            data=new_labels,
+            index=pd.RangeIndex(len(new_labels), name='id'),
+            name='count',
+        ))
     
     # Visualise data distribution
-    fig = plot_data_distributions(labels_dfs, datasets, xbins_range=(min(min_counts), max(max_counts)))
-    st.plotly_chart(fig, use_container_width=True)
+    plot_data_distributions(labels_dfs, datasets, return_fig=False)
     
     images = np.concatenate(images, dtype=np.uint8)
     labels = np.concatenate(labels, dtype=np.uint8)
@@ -173,7 +171,7 @@ def load_img_csv(
         
         image_files: list[str] = os.listdir(images_dir)
         
-        for image_file in stqdm(image_files, desc=f"Loading files from {data_dir}", unit='**file**'):
+        for image_file in stqdm(image_files, desc=f"Loading files from **{data_dir}**", unit='**file**'):
             
             # Get image file path
             image_path = os.path.join(images_dir, image_file) # type: ignore
@@ -193,7 +191,7 @@ def load_img_csv(
         
     else:
     
-        for id in stqdm(labels_df.index, desc=f"Loading files from {data_dir}", unit='**file**'):
+        for id in stqdm(labels_df.index, desc=f"Loading files from **{data_dir}**", unit='**file**'):
             
             # Get image file path
             image_path = os.path.join(images_dir, id) # type: ignore
@@ -253,7 +251,7 @@ def load_img_txt(
     # Get image file paths
     image_files: list[str] = os.listdir(images_dir)
     
-    for image_file in stqdm(image_files, desc=f"Loading files from {data_dir}", unit='**file**'):
+    for image_file in stqdm(image_files, desc=f"Loading files from **{data_dir}**", unit='**file**'):
         
         # Get image and label file paths
         image_path: str = os.path.join(images_dir, image_file)
@@ -301,11 +299,10 @@ def create_synthetic_labels(data_dir: str, images_dir: str, labels_file: str) ->
     image_files: list[str] = os.listdir(images_dir)
     
     # Create synthetic labels for 0 occupancy
-    labels_df = pd.Series(
+    pd.Series(
         data=np.zeros(len(image_files), dtype=int),
         index=pd.Index(image_files, name='id'),
         name='count',
-    )
-    labels_df.to_csv(labels_file)
+    ).to_csv(labels_file)
     
     return

@@ -32,6 +32,7 @@ from ODS.train import train_model
 
 def main(
     mode: Literal['train', 'evaluate', 'predict'],
+    model_type: str = config.MODEL_TYPE,
     model_path: str = config.MODEL_PATH,
     batch_size: int = config.BATCH_SIZE,
     epoch: int = config.NUM_EPOCHS,
@@ -48,6 +49,8 @@ def main(
     ----------
     mode : Literal['train', 'evaluate', 'predict']
         System operation mode (train, evaluate, or predict).
+    model_type: str, optional, default=MODEL_TYPE
+        Type of model to use.
     model_path : str, optional, default=MODEL_PATH
         Path to saved trained model file.
     batch_size : int, optional, default=BATCH_SIZE
@@ -84,7 +87,7 @@ def main(
     if mode == 'train':
         
         # Train model
-        model_path = train_model(train_ratio)
+        model_path = train_model(model_type, train_ratio)
         st.toast(f"Training complete! Model saved to: **{model_path}**", icon=":material/check:")
     
     else:
@@ -105,15 +108,7 @@ def main(
             if mode == 'evaluate':
                 
                 # Evaluate model
-                results = evaluate_model(
-                    model,
-                    config.DATA_DIR,
-                    config.TEST_LABELS_FILE,
-                    config.BATCH_SIZE,
-                )
-
-                # Plot results
-                plot_results(results, model)
+                evaluate_model(model=model, batch_size=batch_size)
             
             else:
 

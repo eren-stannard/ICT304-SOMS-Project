@@ -19,21 +19,17 @@
 
 # Libraries used
 import cv2
+import cv2.typing as cvt
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
-import queue
 import streamlit as st
 import time
-import threading
 import torch
 import torchvision.transforms.v2 as T
 from collections import deque
 from datetime import datetime
-from numpy.typing import NDArray
 from PIL import Image
 from torchvision import tv_tensors
-from typing import Literal
 
 # Files used
 import ODS.config as config
@@ -42,12 +38,12 @@ from ODS.autoencoder_model import AutoencoderModel
 from ODS.cnn_model import CNNModel
 
 
-class StreamlitCameraPredictor:
-    """Streamlit real-time camera predictor class."""
+class AttendanceMonitor:
+    """Real-time attendance monitor."""
     
-    def __init__(self, model: AutoencoderModel | CNNModel, camera_id: int = 0) -> None:
+    def __init__(self, model: AutoencoderModel | CNNModel, camera_id: int = 0, max_points: int = 50) -> None:
         """
-        Streamlit camera predictor constructor.
+        Attendance monitor constructor.
         
         Parameters
         ----------
@@ -61,13 +57,11 @@ class StreamlitCameraPredictor:
         self.camera_id = camera_id
         
         # Data storage
-        self.timestamps = deque(maxlen=150)
-        self.predictions = deque(maxlen=150)
+        self.timestamps = deque(maxlen=max_points)
+        self.predictions = deque(maxlen=max_points)
         
         # Camera and processing
         self.cap = None
-        self.running = False
-        self.frame_queue = queue.Queue(maxsize=2)
         
         # Transform for preprocessing
         self.transform = T.Compose([
@@ -81,104 +75,92 @@ class StreamlitCameraPredictor:
         
         return
     
-    def initialise_camera(self) -> bool:
-        """Initialise camera capture."""
+    def start_camera(self) -> bool:
+        """Start camera feed capture."""
         
+        # Release capture if already active
         if self.cap is not None:
             self.cap.release()
         
+        # Open camera
         self.cap = cv2.VideoCapture(self.camera_id)
         
         if not self.cap.isOpened():
-            
             st.error(f"Error: Could not open camera {self.camera_id}")
-            
             return False
         
-        # Set camera properties for better performance
+        # Set camera settings
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 380)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 15)
         
         return True
     
-    def capture_frames(self) -> None:
-        """Capture frames in a separate thread."""
+    def stop_camera(self) -> None:
+        """Stop camera feed capture."""
         
-        while self.running and self.cap is not None:
-            
-            ret, frame = self.cap.read()
-            print(frame.dtype)
-            if ret:
-                
-                # Keep only the latest frame
-                if not self.frame_queue.empty():
-                    
-                    try:
-                        self.frame_queue.get_nowait()
-                    
-                    except queue.Empty:
-                        pass
-                
-                try:
-                    self.frame_queue.put_nowait(frame)
-                    
-                except queue.Full:
-                    pass
-            
-            time.sleep(0.01)
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        
+        return
     
-    def predict_frame(self, frame: NDArray[np.uint8]):
+    def get_predict_frame(self) -> tuple[int | None, cvt.MatLike | None]:
         """
-        Process frame and make prediction.
+        Capture frame and make prediction.
         
-        Parameters
-        ----------
-        frame 
+        Returns
+        -------
+        pred : int | None
+            Predicted occupancy.
+        frame : NDArray[uint8] | None
+            Input image frame from camera feed.
         """
+        
+        # Return None if camera not open
+        if not self.cap or not self.cap.isOpened():
+            return None, None
+        
+        # Capture frame
+        ret, frame = self.cap.read()
+        
+        # Return None if frame capture failed
+        if not ret:
+            return None, None
         
         try:
             
-            # Convert BGR to RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # type: ignore
+            # Convert frame from BGR to RGB
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            # Convert to PIL image then to tensor and transform
+            # Convert to PIL image then to tensor
             image = tv_tensors.Image(Image.fromarray(frame, mode='RGB'))
+            
+            # Transform image
             image = self.transform(image).unsqueeze(0).to(self.model.device)
             
             # Make prediction
             with torch.no_grad():
-                output = self.model(image)
-                pred = round(output.item())
+                pred = round(self.model(image).item())
+            
+            # Update data
+            self.timestamps.append(datetime.now())
+            self.predictions.append(pred)
             
             return pred, frame
         
         except Exception as e:
-            
+
             st.error(f"Prediction error: {e}")
             
             return None, None
     
-    def add_prediction(self, prediction: int) -> None:
+    def plot_data_stream(self) -> go.Figure:
         """
-        Add new prediction to data storage.
-        
-        Parameters
-        ----------
-        prediction : int
-            Occupancy prediction.
-        """
-        
-        current_time = datetime.now()
-        self.timestamps.append(current_time)
-        self.predictions.append(prediction)
-    
-    def create_plot(self) -> go.Figure:
-        """
-        Create Plotly line chart.
+        Plot occupancy over time.
         
         Returns : Figure
-            Occupancy prediction plot.
+            Occupancy time-series plot.
         """
         
         # Create figure
@@ -186,141 +168,43 @@ class StreamlitCameraPredictor:
         
         if len(self.predictions) > 0:
             
+            # Plot occupancy over time
             fig.add_trace(go.Scatter(
                 x=list(self.timestamps),
                 y=list(self.predictions),
-                line={'color': '#1f77b4', 'width': 2},
-                marker={'size': 6},
+                line_color=st.get_option("theme.primaryColor"),
                 mode='lines+markers',
-                name="Occupancy Over Tims",
+                name="Occupancy",
             ))
         
         fig.update_layout(
             margin={'b': 5, 'l': 5, 'r': 5, 't': 50},
-            title="Real-time Occupancy Predictions",
-            xaxis={'tickformat': '%H:%M:%S', 'showgrid': True},
-            yaxis={'showgrid': True, 'zeroline': True},
-            xaxis_title="Time",
+            title="Real-Time Occupancy Data Stream",
+            #xaxis={'tickformat': '%H:%M:%S', 'showgrid': True},
+            #yaxis={'showgrid': True, 'zeroline': True},
+            xaxis_title="Time (s)",
             yaxis_title="Occupancy",
         )
         
         return fig
     
-    def cleanup(self):
-        """Clean up resources."""
+    def clear_data(self) -> None:
+        """Clear stored predictions."""
         
-        self.running = False
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
-
-def main() -> None:
-    """Main entry point."""
-    
-    # Initialise session state variables
-    if 'predictor' not in st.session_state:
-        st.session_state.predictor = None
-    if 'capture_thread' not in st.session_state:
-        st.session_state.capture_thread = None
-    
-    # Load model
-    model = load_trained_model('cnn')
-    
-    # Control buttons
-    col1, col2 = st.columns([3, 1])
-    
-    with col2:
+        self.timestamps.clear()
+        self.predictions.clear()
         
-        if st.button("Start Camera", type="primary", icon=":material/videocam:", use_container_width=True):
-            
-            if st.session_state.predictor is None:
-                st.session_state.predictor = StreamlitCameraPredictor(model, 0)
-            
-            if st.session_state.predictor.initialise_camera():
-                st.session_state.predictor.running = True
-                st.session_state.capture_thread = threading.Thread(
-                    target=st.session_state.predictor.capture_frames,
-                    daemon=True,
-                )
-                st.session_state.capture_thread.start()
-                st.toast("Camera opened successfully!", icon=":material/videocam:")
-            
-            else:
-                st.error("Failed to open camera")
-        
-        if st.button("Stop Camera", icon=":material/videocam_off:", use_container_width=True):
-            
-            if st.session_state.predictor is not None:
-                st.session_state.predictor.cleanup()
-                st.session_state.predictor = None
-                st.session_state.capture_thread = None
-                st.toast("Camera stopped", icon=":material/videocam_off:")
-        
-        if st.button("Clear Data", icon=":material/delete:", use_container_width=True):
-            
-            if st.session_state.predictor is not None:
-                st.session_state.predictor.timestamps.clear()
-                st.session_state.predictor.predictions.clear()
-                st.toast("Data cleared", icon=":material/delete:")
-    
-    # Main display area placeholders
-    video_placeholder = col1.empty()
-    video_placeholder.container(height=152, border=True).write("Start camera stream to begin monitoring in real-time.")
-    stats_placeholder = col2.empty()
-    chart_placeholder = st.empty()
-    
-    # Real-time processing loop
-    if st.session_state.predictor is not None and st.session_state.predictor.running:
-        
-        while st.session_state.predictor.running:
-            
-            try:
-                
-                # Get latest frame
-                frame = st.session_state.predictor.frame_queue.get(timeout=1.0)
-                
-                # Make prediction
-                prediction, frame = st.session_state.predictor.predict_frame(frame)
-                
-                if prediction and frame is not None:
-                    
-                    # Add prediction to data
-                    st.session_state.predictor.add_prediction(prediction)
-                    
-                    # Display frame
-                    video_placeholder.image(frame, channels='RGB', use_container_width=True)
-                    
-                    # Update chart
-                    fig = st.session_state.predictor.create_plot()
-                    chart_placeholder.plotly_chart(fig, use_container_width=True)
-                    
-                    # Update statistics
-                    if len(st.session_state.predictor.predictions) > 0:
-                        recent_preds = list(st.session_state.predictor.predictions)
-                        stats_placeholder.metric(
-                            label="Current Occupancy",
-                            value=prediction,
-                            delta=f"Avg: {np.mean(recent_preds):.1f}",
-                        )
-                
-                time.sleep(0.5)
-                
-            except queue.Empty:
-                continue
-            
-            except Exception as e:
-                st.error(f"Processing error: {str(e)}")
-                break
+        return
 
 
 @st.cache_resource
-def load_trained_model(model_type: Literal['autoencoder', 'cnn']) -> AutoencoderModel | CNNModel:
+def load_model(model_type: str = config.MODEL_TYPE) -> AutoencoderModel | CNNModel:
     """
     Model loading.
     
     Parameters
     ----------
-    model_type : Literal['autoencoder', 'cnn']
+    model_type : str, optional, default=MODEL_TYPE
         Type of model to load.
     
     Returns
@@ -336,4 +220,86 @@ def load_trained_model(model_type: Literal['autoencoder', 'cnn']) -> Autoencoder
         return cnn_model.load_model(show_log=False)
 
 
-main()
+def main() -> None:
+    """Main entry point."""
+    
+    # Initialise session state variables
+    if 'predictor' not in st.session_state:
+        st.session_state.predictor = None
+    if 'camera_running' not in st.session_state:
+        st.session_state.camera_running = None
+    
+    # Load model
+    model = load_model()
+    
+    # Control buttons
+    col1, col2 = st.columns([3, 1])
+    
+    with col2:
+        
+        if st.button("Start", type="primary", icon=":material/videocam:", use_container_width=True):
+            
+            if st.session_state.predictor is None:
+                st.session_state.predictor = AttendanceMonitor(model)
+            
+            if st.session_state.predictor.start_camera():
+                st.session_state.camera_running = True
+                st.toast("Camera opened successfully!", icon=":material/videocam:")
+            
+            else:
+                st.error("Failed to open camera")
+        
+        if st.button("Stop", icon=":material/videocam_off:", use_container_width=True):
+            
+            if st.session_state.predictor is not None:
+                st.session_state.predictor.stop_camera()
+                st.session_state.camera_running = False
+                st.toast("Camera closed", icon=":material/videocam_off:")
+        
+        if st.button("Clear", icon=":material/delete:", use_container_width=True):
+            
+            if st.session_state.predictor is not None:
+                st.session_state.predictor.clear_data()
+                st.toast("Data cleared", icon=":material/delete:")
+    
+    # Main display area placeholders
+    video_placeholder = col1.empty()
+    chart_placeholder = st.empty()
+    stats_col1, stats_col2 = st.columns(2)
+    
+    # Real-time processing loop
+    if st.session_state.camera_running and st.session_state.predictor:
+        
+        pred, frame = st.session_state.predictor.get_predict_frame()
+        
+        if pred and frame is not None:
+            
+            # Display frame
+            video_placeholder.image(frame, channels='RGB', use_container_width=True)
+            
+            # Update time-series plot
+            fig = st.session_state.predictor.plot_data_stream()
+            chart_placeholder.plotly_chart(fig, use_container_width=True)
+            
+            # Display stats
+            recent_preds = list(st.session_state.predictor.predictions)
+            with stats_col1:
+                st.metric("Current", pred)
+            with stats_col2:
+                st.metric("Average", f"{np.mean(recent_preds):.1f}")
+            
+            time.sleep(0.5)
+            st.rerun()
+            
+        else:
+            
+            video_placeholder.write("Loading camera feed...")
+    
+    else:
+        video_placeholder.info("Click 'Start' to begin real-time attendance monitoring")
+    
+    return
+
+
+if __name__ == '__main__':
+    main()
