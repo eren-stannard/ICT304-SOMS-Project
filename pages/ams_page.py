@@ -24,6 +24,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 import time
+import threading
 import torch
 import torchvision.transforms.v2 as T
 from collections import deque
@@ -60,7 +61,7 @@ class AttendanceMonitor:
         self.timestamps = deque(maxlen=max_points)
         self.predictions = deque(maxlen=max_points)
         
-        # Camera and processing
+        # Camera and state
         self.cap = None
         
         # Transform for preprocessing
@@ -84,9 +85,7 @@ class AttendanceMonitor:
         
         # Open camera
         self.cap = cv2.VideoCapture(self.camera_id)
-        
         if not self.cap.isOpened():
-            st.error(f"Error: Could not open camera {self.camera_id}")
             return False
         
         # Set camera settings
@@ -220,14 +219,65 @@ def load_model(model_type: str = config.MODEL_TYPE) -> AutoencoderModel | CNNMod
         return cnn_model.load_model(show_log=False)
 
 
+# Auto-run every 0.5 seconds
+@st.fragment(run_every=0.5)
+def camera_feed() -> None:
+    """Fragment that handles real-time camera updates."""
+    
+    if not st.session_state.get('camera_active', False):
+        st.toast("Camera stopped")
+        return
+    
+    monitor = st.session_state.get('monitor')
+    if not monitor:
+        st.error("No monitor available")
+        return
+    
+    # Get frame and prediction
+    frame, prediction = monitor.get_predict_frame()
+    
+    if frame is not None and prediction is not None:
+        # Display video feed
+        st.image(frame, channels='RGB', caption="Live Camera Feed", use_container_width=True)
+        
+        # Display current stats
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Current Occupancy", prediction)
+        with col2:
+            if monitor.predictions:
+                avg = np.mean(list(monitor.predictions))
+                st.metric("Average", f"{avg:.1f}")
+    else:
+        st.warning("No camera feed available")
+    
+    return
+
+
+@st.fragment(run_every=1.0)
+def occupancy_chart() -> None:
+    """Fragment that handles chart updates."""
+    
+    monitor = st.session_state.get('monitor')
+    
+    if monitor and monitor.predictions:
+        fig = monitor.create_plot()
+        st.plotly_chart(fig, use_container_width=True)
+    
+    else:
+        st.info("📊 Occupancy data will appear here once monitoring starts")
+
+    return
+
+
 def main() -> None:
     """Main entry point."""
     
     # Initialise session state variables
-    if 'predictor' not in st.session_state:
-        st.session_state.predictor = None
-    if 'camera_running' not in st.session_state:
-        st.session_state.camera_running = None
+    if 'monitor' not in st.session_state:
+        st.session_state.monitor = None
+    if 'camera_on' not in st.session_state:
+        st.session_state.camera_on = None
     
     # Load model
     model = load_model()
@@ -239,11 +289,11 @@ def main() -> None:
         
         if st.button("Start", type="primary", icon=":material/videocam:", use_container_width=True):
             
-            if st.session_state.predictor is None:
-                st.session_state.predictor = AttendanceMonitor(model)
+            if st.session_state.monitor is None:
+                st.session_state.monitor = AttendanceMonitor(model)
             
-            if st.session_state.predictor.start_camera():
-                st.session_state.camera_running = True
+            if st.session_state.monitor.start_camera():
+                st.session_state.camera_on = True
                 st.toast("Camera opened successfully!", icon=":material/videocam:")
             
             else:
@@ -251,26 +301,30 @@ def main() -> None:
         
         if st.button("Stop", icon=":material/videocam_off:", use_container_width=True):
             
-            if st.session_state.predictor is not None:
-                st.session_state.predictor.stop_camera()
-                st.session_state.camera_running = False
+            if st.session_state.monitor is not None:
+                st.session_state.monitor.stop_camera()
+                st.session_state.camera_on = False
                 st.toast("Camera closed", icon=":material/videocam_off:")
         
         if st.button("Clear", icon=":material/delete:", use_container_width=True):
             
-            if st.session_state.predictor is not None:
-                st.session_state.predictor.clear_data()
+            if st.session_state.monitor is not None:
+                st.session_state.monitor.clear_data()
                 st.toast("Data cleared", icon=":material/delete:")
     
+    camera_feed()
+    occupancy_chart()
+    
+    """
     # Main display area placeholders
     video_placeholder = col1.empty()
     chart_placeholder = st.empty()
     stats_col1, stats_col2 = st.columns(2)
     
     # Real-time processing loop
-    if st.session_state.camera_running and st.session_state.predictor:
+    if st.session_state.camera_on and st.session_state.monitor:
         
-        pred, frame = st.session_state.predictor.get_predict_frame()
+        pred, frame = st.session_state.monitor.get_predict_frame()
         
         if pred and frame is not None:
             
@@ -278,11 +332,11 @@ def main() -> None:
             video_placeholder.image(frame, channels='RGB', use_container_width=True)
             
             # Update time-series plot
-            fig = st.session_state.predictor.plot_data_stream()
+            fig = st.session_state.monitor.plot_data_stream()
             chart_placeholder.plotly_chart(fig, use_container_width=True)
             
             # Display stats
-            recent_preds = list(st.session_state.predictor.predictions)
+            recent_preds = list(st.session_state.monitor.predictions)
             with stats_col1:
                 st.metric("Current", pred)
             with stats_col2:
@@ -297,6 +351,7 @@ def main() -> None:
     
     else:
         video_placeholder.info("Click 'Start' to begin real-time attendance monitoring")
+    """
     
     return
 

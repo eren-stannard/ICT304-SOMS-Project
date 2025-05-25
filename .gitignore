@@ -165,6 +165,5 @@ cython_debug/
 
 # Datasets and outputs
 ODS/dataset/
-ODS/dataset/**
 ODS/balanced_dataset/
-ODS/balanced_dataset/**
+ODS/output/plots/

@@ -40,8 +40,8 @@ torch.classes.__path__ = []
 
 
 def train_model(
-    model_type: str = config.MODEL_TYPE, train_ratio: float = config.TRAIN_RATIO,
-    lr: float = config.LEARNING_RATE,
+    model_type: str = config.MODEL_TYPE, batch_size: int = config.BATCH_SIZE, epoch: int = config.NUM_EPOCHS,
+    lr: float = config.LEARNING_RATE, wd: float = config.WEIGHT_DECAY, train_ratio: float = config.TRAIN_RATIO,
 ) -> str:
     """
     Train model for occupancy detection.
@@ -50,10 +50,16 @@ def train_model(
     ----------
     model_type : str, optional, default=MODEL_TYPE
         Type of model to train.
-    train_ratio : float, optional, default=TRAIN_RATIO
-        Proportion of samples to use for training set.
+    batch_size : int, optional, default=BATCH_SIZE
+        Batch size to use.
+    epoch : int, optional, default=NUM_EPOCHS
+        Number of epochs.
     lr : float, optional, default=LEARNING_RATE
         How much model parameters are updated after each batch.
+    wd : float, optional, default=WEIGHT_DECAY
+        Weight decay.
+    train_ratio : float, optional, default=TRAIN_RATIO
+        Proportion of samples to use for training set.
 
     Returns
     -------
@@ -95,10 +101,16 @@ def train_model(
 
     # Define loss functions for prediction loss and reconstruction loss and optimiser
     pred_criterion = nn.MSELoss()
-    #recon_criterion = nn.MSELoss()
+    #recon_criterion = nn.MSELoss() # For Autoencoder
+    
+    # Current learning rate
     current_lr = lr
-    optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=0.000001)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=5)
+    
+    #optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=0.00001)
+    optimiser = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
+    
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=3)
+    #scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=30, gamma=0.1)
 
     # Training loop
     losses: dict[str, list[float | int | str]] = {
@@ -107,6 +119,7 @@ def train_model(
         'Loop': [],
     }
     best_val_loss = float('inf')
+    best_model_epoch = 0
     model_path: str = config.MODEL_PATH
     
     # Training status
@@ -130,15 +143,19 @@ def train_model(
         # Use stqdm for progress bar (Streamlit tqdm)
         for x, y in stqdm(train_loader, desc=f"Training ({epoch_str})", unit='**batch**', st_container=c):
             
-            # Forward pass
+            # Forward pass (Autoencoder)
             #x = flatten(x)
             #reconstruction, _, count_pred = model.full_forward(x)
+
+            # Forward pass (CNN)
             count_pred = model(x)
             
-            # Compute loss
+            # Compute loss (Autoencoder)
             #recon_loss = recon_criterion(reconstruction, x)
             #pred_loss = pred_criterion(count_pred, y)
             #total_loss = (recon_loss / x.numel()) + (pred_loss / y.numel())
+
+            # Compute loss (CNN)
             total_loss = pred_criterion(count_pred, y)
 
             # Backward pass and optimise
@@ -147,10 +164,10 @@ def train_model(
             optimiser.step()
 
             train_loss += total_loss.item() * x.size(0)
-        
+
         # Calculate average loss
         train_loss = train_loss / len(train_loader.dataset) # type: ignore
-        
+
         losses['Epoch'].append(epoch)
         losses['Loss'].append(train_loss)
         losses['Loop'].append('Training')
@@ -160,29 +177,35 @@ def train_model(
         val_loss = 0.0
 
         with torch.no_grad():
-            
+
             for x, y in stqdm(val_loader, desc=f"Validating ({epoch_str})", unit='**batch**', st_container=c):
-                
-                # Forward pass
+
+                # Forward pass (Autoencoder)
                 #x = flatten(x)
                 #reconstruction, _, count_pred = model.full_forward(x)
-                count_pred = model(x)
                 
-                # Compute loss
+                # Forward pass (CNN)
+                count_pred = model(x)
+
+                # Compute loss (Autoencoder)
                 #recon_loss = recon_criterion(reconstruction, x)
                 #pred_loss = pred_criterion(count_pred, y)
                 #total_loss = (recon_loss / x.numel()) + (pred_loss / y.numel())
+                
+                # Compute loss (CNN)
                 total_loss = pred_criterion(count_pred, y)
 
                 val_loss += total_loss.item() * x.size(0)
-        
+
         val_loss = val_loss / len(val_loader.dataset) # type: ignore
+
+        # Update LR scheduler
         scheduler.step(val_loss)
-        
+
         losses['Epoch'].append(epoch)
         losses['Loss'].append(val_loss)
         losses['Loop'].append('Validation')
-        
+
         # Display epoch results
         result = (
             f":primary-badge[:material/check: {epoch_str}] " +
@@ -193,6 +216,7 @@ def train_model(
         # Save best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            best_model_epoch = epoch
             torch.save(model.state_dict(), model_path)
             result += " :green-badge[:material/star: New best model saved!]"
         
@@ -205,12 +229,14 @@ def train_model(
     train_status.update(label=f":primary[**{model_name}**] training complete.", state='complete')
     
     # Plot learning curve
-    plot_learning_curve(losses, model_name)
+    plot_learning_curve(losses, model_name, best_model_epoch)
     
     return model_path
 
 
-def plot_learning_curve(losses: dict[str, list[float | int | str]], model_name: str) -> None:
+def plot_learning_curve(
+    losses: dict[str, list[float | int | str]], model_name: str, best_model_epoch: int | None = None,
+) -> None:
     """
     Plot model learning curve (training vs. validation losses).
 
@@ -231,18 +257,30 @@ def plot_learning_curve(losses: dict[str, list[float | int | str]], model_name: 
         title=f"{model_name} Learning Curve - Training Versus Validation Loss",
     )
     
-    # Add line to show best validation loss
-    best_loss_idx = losses_df[losses_df['Loop'] == 'Validation']['Loss'].idxmin()
-    fig.add_vline(
-        x=losses_df.at[best_loss_idx, 'Epoch'],
-        annotation={
-            'borderpad': 6,
-            'font': {'color': config.COLOUR_PALETTE[0], 'size': 16},
-            'text': f"Best Validation Loss: {losses_df.at[best_loss_idx, 'Loss']:.3f}",
-            'xanchor': 'right',
-        },
-        line={'color': config.COLOUR_PALETTE[0], 'dash': 'dot', 'width': 2},
-    )
+    if best_model_epoch:
+        
+        # Get record of epoch with best model
+        best_result = losses_df[losses_df['Epoch'] == best_model_epoch].set_index('Loop')['Loss']
+        
+        # Training and validation loss for best model
+        annotation_text = (
+            "Best Model:<br>" +
+            f"Training Loss: {best_result['Training']:.3f}<br>" +
+            f"Validation Loss: {best_result['Validation']:.3f}"
+        )
+        
+        # Add line to show epoch of best model
+        fig.add_vline(
+            x=best_model_epoch,
+            annotation={
+                'align': 'right',
+                'borderpad': 6,
+                'font': {'color': config.COLOUR_PALETTE[0], 'size': 16},
+                'text': annotation_text,
+                'xanchor': 'right',
+            },
+            line={'color': config.COLOUR_PALETTE[0], 'dash': 'dot', 'width': 2},
+        )
     
     # Display figure
     st.plotly_chart(fig, use_container_width=True)
