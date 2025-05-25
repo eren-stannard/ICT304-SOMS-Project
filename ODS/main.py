@@ -87,7 +87,7 @@ def main(
     if mode == 'train':
         
         # Train model
-        model_path = train_model(model_type=model_type, train_ratio=train_ratio)
+        model_path = train_model(model_type=model_type, batch_size=batch_size, num_epochs=epoch, lr=lr, train_ratio=train_ratio)
         st.toast(f"Training complete! Model saved to: **{model_path}**", icon=":material/check:")
     
     else:

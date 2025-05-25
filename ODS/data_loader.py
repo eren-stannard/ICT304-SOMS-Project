@@ -233,7 +233,8 @@ def simple_resample_dataset(
             ).tolist()
             print(f"Count {count_value}: Reduced from {len(count_indices)} to {max_samples_per_count}")
         
-            """elif len(count_indices) < min_samples_per_count:
+            """
+            elif len(count_indices) < min_samples_per_count:
                 
                 oversampled_indices = np.random.choice(
                     count_indices, 
@@ -241,7 +242,8 @@ def simple_resample_dataset(
                     replace=True,
                 ).tolist()
                 selected_indices = count_indices + oversampled_indices
-                print(f"Count {count_value}: Oversampled from {len(count_indices)} to {min_samples_per_count}")"""
+                print(f"Count {count_value}: Oversampled from {len(count_indices)} to {min_samples_per_count}")
+            """
         
         else:
             
@@ -401,10 +403,10 @@ def get_data_loader(
     
     # Define transforms
     train_transform = T.Compose([
-        T.RandomAdjustSharpness(random.uniform(0.8, 1.2), 0.2),
-        T.RandomAutocontrast(0.2),
+        T.RandomAdjustSharpness(random.uniform(0.8, 1.2), 0.15),
+        T.RandomAutocontrast(0.15),
         T.RandomHorizontalFlip(0.5),
-        T.RandomInvert(0.2),
+        T.RandomInvert(0.15),
         #T.TrivialAugmentWide(),
         T.Resize((224, 224)),
         T.ToDtype(torch.float32),

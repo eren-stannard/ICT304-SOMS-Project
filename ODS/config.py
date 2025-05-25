@@ -44,10 +44,10 @@ TEST_LABELS_FILE = os.path.join(DATA_DIR, 'test_labels.npy')
 MODEL_TYPE = 'cnn'
 
 # Training configuration
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 NUM_EPOCHS = 30 # Changed from 20
-LEARNING_RATE = 0.0005
-WEIGHT_DECAY = 0.0001
+LEARNING_RATE = 0.5
+WEIGHT_DECAY = 0.00002
 TRAIN_RATIO = 0.8
 
 ## Autoencoder configuration

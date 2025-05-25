@@ -40,7 +40,7 @@ torch.classes.__path__ = []
 
 
 def train_model(
-    model_type: str = config.MODEL_TYPE, batch_size: int = config.BATCH_SIZE, epoch: int = config.NUM_EPOCHS,
+    model_type: str = config.MODEL_TYPE, batch_size: int = config.BATCH_SIZE, num_epochs: int = config.NUM_EPOCHS,
     lr: float = config.LEARNING_RATE, wd: float = config.WEIGHT_DECAY, train_ratio: float = config.TRAIN_RATIO,
 ) -> str:
     """
@@ -52,7 +52,7 @@ def train_model(
         Type of model to train.
     batch_size : int, optional, default=BATCH_SIZE
         Batch size to use.
-    epoch : int, optional, default=NUM_EPOCHS
+    num_epochs : int, optional, default=NUM_EPOCHS
         Number of epochs.
     lr : float, optional, default=LEARNING_RATE
         How much model parameters are updated after each batch.
@@ -100,18 +100,20 @@ def train_model(
     )
 
     # Define loss functions for prediction loss and reconstruction loss and optimiser
-    pred_criterion = nn.MSELoss()
     #recon_criterion = nn.MSELoss() # For Autoencoder
+    pred_criterion = nn.MSELoss()
     
     # Current learning rate
     current_lr = lr
     
-    #optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=0.00001)
-    optimiser = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
+    # Optimiser
+    optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
     
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=3)
-    #scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=30, gamma=0.1)
-
+    # Learning rate scheduler
+    #scheduler1 = optim.lr_scheduler.StepLR(optimiser, 2, 0.9)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimiser, num_epochs)
+    #scheduler = optim.lr_scheduler.SequentialLR(optimiser, [scheduler1, scheduler2], [2])
+    
     # Training loop
     losses: dict[str, list[float | int | str]] = {
         'Epoch': [],
@@ -128,13 +130,13 @@ def train_model(
     train_status = c.status(label=f"Training {prog_msg}", state='running')
     expander = st.expander("Epoch Results", icon=":material/query_stats:")
     
-    for epoch in range(1, config.NUM_EPOCHS + 1):
+    for epoch in range(1, num_epochs + 1):
         
         # Training
         model.train()
         train_loss = 0.0
 
-        epoch_str = f"Epoch **{epoch}/{config.NUM_EPOCHS}**"
+        epoch_str = f"Epoch **{epoch}/{num_epochs}**"
         train_status.update(
             label=f"Training {prog_msg}... {epoch_str}",
             state='running',
@@ -200,7 +202,7 @@ def train_model(
         val_loss = val_loss / len(val_loader.dataset) # type: ignore
 
         # Update LR scheduler
-        scheduler.step(val_loss)
+        scheduler.step()
 
         losses['Epoch'].append(epoch)
         losses['Loss'].append(val_loss)
@@ -212,7 +214,7 @@ def train_model(
             f"Training loss: **{train_loss:.3f}**, " +
             f"Validation loss: **{val_loss:.3f}**"
         )
-
+        
         # Save best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -222,7 +224,7 @@ def train_model(
         
         elif scheduler.get_last_lr()[0] < current_lr:
             current_lr = scheduler.get_last_lr()[0]
-            result += f" :orange-badge[:material/arrow_cool_down: LR reduced: **{current_lr:.5f}**]"
+            result += f" :orange-badge[:material/arrow_cool_down: LR reduced: **{current_lr:.4f}**]"
         
         expander.write(result)
     
