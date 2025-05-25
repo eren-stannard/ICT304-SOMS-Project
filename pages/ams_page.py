@@ -17,19 +17,15 @@
 """
 
 
-# Libraries used
 import cv2
-import cv2.typing as cvt
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-import time
-import threading
 import torch
 import torchvision.transforms.v2 as T
 from collections import deque
 from datetime import datetime
-from PIL import Image
+from numpy.typing import NDArray
 from torchvision import tv_tensors
 
 # Files used
@@ -40,31 +36,28 @@ from ODS.cnn_model import CNNModel
 
 
 class AttendanceMonitor:
-    """Real-time attendance monitor."""
+    """Real-time attendance monitor class."""
     
-    def __init__(self, model: AutoencoderModel | CNNModel, camera_id: int = 0, max_points: int = 50) -> None:
+    def __init__(self, model: AutoencoderModel | CNNModel, camera_id: int = 0) -> None:
         """
         Attendance monitor constructor.
         
         Parameters
         ----------
-        model : Autoencoder | CNN
+        model : AutoencoderModel | CNNModel
             Model to use for prediction.
         camera_id : int, optional, default=0
-            Camera device ID.
+            Camera device to use.
         """
         
         self.model = model
         self.camera_id = camera_id
-        
-        # Data storage
-        self.timestamps = deque(maxlen=max_points)
-        self.predictions = deque(maxlen=max_points)
-        
-        # Camera and state
         self.cap = None
         
-        # Transform for preprocessing
+        # Occupancy data predictions and associated timestamps
+        self.data = deque(maxlen=100)
+        
+        # Define transforms
         self.transform = T.Compose([
             T.Resize((224, 224)),
             T.ToDtype(torch.float32),
@@ -73,14 +66,12 @@ class AttendanceMonitor:
                 std=[0.229, 0.224, 0.225],
             ),
         ])
-        
-        return
     
     def start_camera(self) -> bool:
-        """Start camera feed capture."""
+        """Open and start camera."""
         
-        # Release capture if already active
-        if self.cap is not None:
+        # Close camera if already open
+        if self.cap:
             self.cap.release()
         
         # Open camera
@@ -88,15 +79,74 @@ class AttendanceMonitor:
         if not self.cap.isOpened():
             return False
         
-        # Set camera settings
+        # Camera settings
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FPS, 15)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         return True
     
+    def predict_frame(self) -> tuple[int | None, NDArray[np.number] | None]:
+        """Capture frame and make prediction."""
+        
+        if self.cap is None:
+            return None, None
+        
+        # Capture frame
+        ret, frame = self.cap.read()
+        if not ret:
+            return None, None
+        
+        try:
+            
+            # Convert image to RGB, tensor, and transform
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = tv_tensors.Image(frame).permute(2, 0, 1)
+            image = self.transform(image).unsqueeze(0).to(self.model.device)
+            
+            # Make prediction
+            with torch.no_grad():
+                pred = round(self.model(image).item())
+            
+            # Save current occupancy and time
+            self.data.append((datetime.now(), pred))
+            
+            return pred, frame
+            
+        except Exception as e:
+            st.error(f"Prediction error: {e}")
+            return None, None
+    
+    def plot_occupancy(self) -> go.Figure:
+        """Plot occupancy over time."""
+        
+        # Create figure
+        fig = go.Figure()
+        
+        if self.data:
+            times, preds = zip(*self.data)
+            
+            fig.add_trace(go.Scatter(
+                x=times,
+                y=preds,
+                mode='lines',
+                line_color='#dd7878',
+                name="Occupancy",
+            ))
+        
+        fig.update_layout(
+            title="Real-Time Occupancy Data",
+            xaxis_title="Time",
+            yaxis_title="Occupancy",
+            margin={'t': 50, 'b': 50, 'l': 50, 'r': 50},
+            height=300,
+        )
+        
+        return fig
+    
     def stop_camera(self) -> None:
-        """Stop camera feed capture."""
+        """Stop camera."""
         
         if self.cap:
             self.cap.release()
@@ -104,94 +154,10 @@ class AttendanceMonitor:
         
         return
     
-    def get_predict_frame(self) -> tuple[int | None, cvt.MatLike | None]:
-        """
-        Capture frame and make prediction.
-        
-        Returns
-        -------
-        pred : int | None
-            Predicted occupancy.
-        frame : NDArray[uint8] | None
-            Input image frame from camera feed.
-        """
-        
-        # Return None if camera not open
-        if not self.cap or not self.cap.isOpened():
-            return None, None
-        
-        # Capture frame
-        ret, frame = self.cap.read()
-        
-        # Return None if frame capture failed
-        if not ret:
-            return None, None
-        
-        try:
-            
-            # Convert frame from BGR to RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Convert to PIL image then to tensor
-            image = tv_tensors.Image(Image.fromarray(frame, mode='RGB'))
-            
-            # Transform image
-            image = self.transform(image).unsqueeze(0).to(self.model.device)
-            
-            # Make prediction
-            with torch.no_grad():
-                pred = round(self.model(image).item())
-            
-            # Update data
-            self.timestamps.append(datetime.now())
-            self.predictions.append(pred)
-            
-            return pred, frame
-        
-        except Exception as e:
-
-            st.error(f"Prediction error: {e}")
-            
-            return None, None
-    
-    def plot_data_stream(self) -> go.Figure:
-        """
-        Plot occupancy over time.
-        
-        Returns : Figure
-            Occupancy time-series plot.
-        """
-        
-        # Create figure
-        fig = go.Figure()
-        
-        if len(self.predictions) > 0:
-            
-            # Plot occupancy over time
-            fig.add_trace(go.Scatter(
-                x=list(self.timestamps),
-                y=list(self.predictions),
-                line_color=st.get_option("theme.primaryColor"),
-                mode='lines+markers',
-                name="Occupancy",
-            ))
-        
-        fig.update_layout(
-            margin={'b': 5, 'l': 5, 'r': 5, 't': 50},
-            title="Real-Time Occupancy Data Stream",
-            #xaxis={'tickformat': '%H:%M:%S', 'showgrid': True},
-            #yaxis={'showgrid': True, 'zeroline': True},
-            xaxis_title="Time (s)",
-            yaxis_title="Occupancy",
-        )
-        
-        return fig
-    
     def clear_data(self) -> None:
-        """Clear stored predictions."""
+        """Clear stored data."""
         
-        self.timestamps.clear()
-        self.predictions.clear()
+        self.data.clear()
         
         return
 
@@ -199,17 +165,16 @@ class AttendanceMonitor:
 @st.cache_resource
 def load_model(model_type: str = config.MODEL_TYPE) -> AutoencoderModel | CNNModel:
     """
-    Model loading.
+    Load trained model.
     
     Parameters
     ----------
     model_type : str, optional, default=MODEL_TYPE
-        Type of model to load.
+        Type of model to use.
     
-    Returns
-    -------
-    model : AutoencoderModel | CNNModel
-        Model to use.
+    See Also
+    --------
+    ODS/config.py : Default ODS parameter configuration.
     """
     
     if model_type == 'autoencoder':
@@ -219,55 +184,35 @@ def load_model(model_type: str = config.MODEL_TYPE) -> AutoencoderModel | CNNMod
         return cnn_model.load_model(show_log=False)
 
 
-# Auto-run every 0.5 seconds
+# Rerun every 0.5 seconds
 @st.fragment(run_every=0.5)
-def camera_feed() -> None:
-    """Fragment that handles real-time camera updates."""
+def camera_stream() -> None:
+    """Camera stream fragment. Updates independently from rest of script."""
     
-    if not st.session_state.get('camera_active', False):
-        st.toast("Camera stopped")
+    if 'monitor' not in st.session_state or st.session_state.get('camera_active', False) is False:
+        st.container(height=300, border=True).write(":grey[Start camera to begin monitoring]")
         return
     
-    monitor = st.session_state.get('monitor')
-    if not monitor:
-        st.error("No monitor available")
-        return
+    monitor = st.session_state.monitor
+    pred, frame = monitor.predict_frame()
     
-    # Get frame and prediction
-    frame, prediction = monitor.get_predict_frame()
-    
-    if frame is not None and prediction is not None:
-        # Display video feed
-        st.image(frame, channels='RGB', caption="Live Camera Feed", use_container_width=True)
+    if monitor is not None and frame is not None:
+        col1, col2 = st.columns([3, 1])
         
-        # Display current stats
-        col1, col2 = st.columns(2)
+        # Display frame
         with col1:
-            st.metric("Current Occupancy", prediction)
+            st.image(frame, channels='RGB', use_container_width=True)
+        
+        # Display currrent occupancy
         with col2:
-            if monitor.predictions:
-                avg = np.mean(list(monitor.predictions))
-                st.metric("Average", f"{avg:.1f}")
-    else:
-        st.warning("No camera feed available")
-    
-    return
-
-
-@st.fragment(run_every=1.0)
-def occupancy_chart() -> None:
-    """Fragment that handles chart updates."""
-    
-    monitor = st.session_state.get('monitor')
-    
-    if monitor and monitor.predictions:
-        fig = monitor.create_plot()
-        st.plotly_chart(fig, use_container_width=True)
-    
-    else:
-        st.info("📊 Occupancy data will appear here once monitoring starts")
-
-    return
+            _, recent_preds = zip(*monitor.data)
+            avg_occupancy = np.mean(recent_preds) if recent_preds else 0
+            st.metric("Current Occupancy", pred, delta=f"Avg: {avg_occupancy:.1f}")
+        
+        # Update time-series plot
+        if monitor.data:
+            fig = monitor.plot_occupancy()
+            st.plotly_chart(fig, use_container_width=True)
 
 
 def main() -> None:
@@ -275,86 +220,36 @@ def main() -> None:
     
     # Initialise session state variables
     if 'monitor' not in st.session_state:
-        st.session_state.monitor = None
-    if 'camera_on' not in st.session_state:
-        st.session_state.camera_on = None
+        st.session_state.monitor = AttendanceMonitor(load_model())
+    if 'camera_active' not in st.session_state:
+        st.session_state.camera_active = False
     
-    # Load model
-    model = load_model()
+    col1, col2, col3 = st.columns(3)
     
-    # Control buttons
-    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button("Start Camera", type="primary", icon=":material/video_camera_front:", use_container_width=True):
+            if st.session_state.monitor.start_camera():
+                st.session_state.camera_active = True
+                st.toast("Camera started!", icon=":material/video_camera_front:")
+                st.rerun()
+            else:
+                st.error("Failed to start camera")
     
     with col2:
-        
-        if st.button("Start", type="primary", icon=":material/videocam:", use_container_width=True):
-            
-            if st.session_state.monitor is None:
-                st.session_state.monitor = AttendanceMonitor(model)
-            
-            if st.session_state.monitor.start_camera():
-                st.session_state.camera_on = True
-                st.toast("Camera opened successfully!", icon=":material/videocam:")
-            
-            else:
-                st.error("Failed to open camera")
-        
-        if st.button("Stop", icon=":material/videocam_off:", use_container_width=True):
-            
-            if st.session_state.monitor is not None:
-                st.session_state.monitor.stop_camera()
-                st.session_state.camera_on = False
-                st.toast("Camera closed", icon=":material/videocam_off:")
-        
-        if st.button("Clear", icon=":material/delete:", use_container_width=True):
-            
-            if st.session_state.monitor is not None:
-                st.session_state.monitor.clear_data()
-                st.toast("Data cleared", icon=":material/delete:")
-    
-    camera_feed()
-    occupancy_chart()
-    
-    """
-    # Main display area placeholders
-    video_placeholder = col1.empty()
-    chart_placeholder = st.empty()
-    stats_col1, stats_col2 = st.columns(2)
-    
-    # Real-time processing loop
-    if st.session_state.camera_on and st.session_state.monitor:
-        
-        pred, frame = st.session_state.monitor.get_predict_frame()
-        
-        if pred and frame is not None:
-            
-            # Display frame
-            video_placeholder.image(frame, channels='RGB', use_container_width=True)
-            
-            # Update time-series plot
-            fig = st.session_state.monitor.plot_data_stream()
-            chart_placeholder.plotly_chart(fig, use_container_width=True)
-            
-            # Display stats
-            recent_preds = list(st.session_state.monitor.predictions)
-            with stats_col1:
-                st.metric("Current", pred)
-            with stats_col2:
-                st.metric("Average", f"{np.mean(recent_preds):.1f}")
-            
-            time.sleep(0.5)
+        if st.button("Stop Camera", icon=":material/video_camera_front_off:", use_container_width=True):
+            st.session_state.monitor.stop_camera()
+            st.session_state.camera_active = False
+            st.toast("Camera stopped", icon=":material/video_camera_front_off:")
             st.rerun()
-            
-        else:
-            
-            video_placeholder.write("Loading camera feed...")
     
-    else:
-        video_placeholder.info("Click 'Start' to begin real-time attendance monitoring")
-    """
+    with col3:
+        if st.button("Clear Data", icon=":material/delete_sweep:", use_container_width=True):
+            st.session_state.monitor.clear_data()
+            st.toast("Data cleared", icon=":material/delete_sweep:")
     
-    return
+    # Camera streaming fragment
+    camera_stream()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -60,22 +60,6 @@ DATA_VIS_DIR = os.path.join(OUTPUT_DIR, 'data_vis')
 MODEL_PATH = os.path.join(OUTPUT_DIR, f'{MODEL_TYPE}_model.pth')
 
 # Colour configuration using Catppuccin's Latte theme
-COLOUR_PALETTE_FULL = [
-    '#dd7878',  # Flamingo
-    '#d20f39',  # Red
-    '#e64553',  # Maroon
-    '#fe640b',  # Peach
-    '#df8e1d',  # Yellow
-    '#40a02b',  # Green
-    '#179299',  # Teal
-    '#209fb5',  # Sapphire
-    '#04a5e5',  # Sky
-    '#1e66f5',  # Blue
-    '#7287fd',  # Lavender
-    '#8839ef',  # Mauve
-    '#ea76cb',  # Pink
-    # '#dc8a78',  # Rosewater
-]
 COLOUR_PALETTE = [
     '#d20f39',  # Red
     '#fe640b',  # Peach
