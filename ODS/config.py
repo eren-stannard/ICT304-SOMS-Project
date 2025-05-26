@@ -26,7 +26,7 @@ import torch
 SRC_DATA_DIR = os.path.join('ODS', 'datasets')
 APPLY_RESAMPLING = True
 MIN_SAMPLES_PER_COUNT = 50
-MAX_SAMPLES_PER_COUNT = 200
+MAX_SAMPLES_PER_COUNT = 250
 
 # Combined data cofigureation
 COMBINED_DATA_DIR = os.path.join('ODS', 'dataset')

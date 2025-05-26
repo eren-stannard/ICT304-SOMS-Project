@@ -108,11 +108,17 @@ def train_model(
     
     # Optimiser
     optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
+    #optimiser = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=wd)
     
     # Learning rate scheduler
-    #scheduler1 = optim.lr_scheduler.StepLR(optimiser, 2, 0.9)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimiser, num_epochs)
-    #scheduler = optim.lr_scheduler.SequentialLR(optimiser, [scheduler1, scheduler2], [2])
+    warmup_epochs = 5
+    main_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=num_epochs - warmup_epochs)
+    
+    if warmup_epochs < num_epochs:
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(optimiser, start_factor=0.01, total_iters=warmup_epochs)
+        scheduler = optim.lr_scheduler.SequentialLR(optimiser, schedulers=[warmup_scheduler, main_scheduler], milestones=[warmup_epochs])
+    else:
+        scheduler = main_scheduler
     
     # Training loop
     losses: dict[str, list[float | int | str]] = {

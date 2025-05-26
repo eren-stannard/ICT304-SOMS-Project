@@ -131,7 +131,7 @@ def training_mode(**kwargs) -> None:
     with col2:
         kwargs['epoch'] = st.number_input(
             label="Epoch",
-            min_value=1,
+            min_value=5,
             value=config.NUM_EPOCHS,
             help="Number of iterations for training model",
             disabled=st.session_state.training_confirmed,
