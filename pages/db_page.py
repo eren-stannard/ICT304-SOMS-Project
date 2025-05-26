@@ -18,6 +18,7 @@
 
 
 # Libraries used
+import plotly.express as px
 import streamlit as st
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
@@ -55,6 +56,8 @@ def main() -> None:
             for statement, result in results:
                 st.write(statement)
                 st.dataframe(result)
+                if not result.empty:
+                    fig = px.line(result, x='Timestamp', y='OccupancyCount')
     
     return
 

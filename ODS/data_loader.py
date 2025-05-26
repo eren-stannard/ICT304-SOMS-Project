@@ -178,8 +178,7 @@ def load_dataset(
 
 
 def simple_resample_dataset(
-    images: NDArray[np.uint8], labels: NDArray[np.uint8], min_samples_per_count: int = config.MIN_SAMPLES_PER_COUNT,
-    max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT, transform: T.Compose | None = None,
+    images: NDArray[np.uint8], labels: NDArray[np.uint8], max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT,
 ) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
     """
     Simple resampling to limit the number of samples per occupancy count.
@@ -190,8 +189,6 @@ def simple_resample_dataset(
         Dataset images.
     labels : NDArray[uint8]
         Dataset labels.
-    min_samples_per_count : int, optional, default=MIN_SAMPLES_PER_COUNT
-        Minimum samples per occupancy count when resampling.
     max_samples_per_count : int, optional, default=MAX_SAMPLES_PER_COUNT
         Maximum number of samples to keep for each occupancy count.
     
@@ -233,18 +230,6 @@ def simple_resample_dataset(
             ).tolist()
             print(f"Count {count_value}: Reduced from {len(count_indices)} to {max_samples_per_count}")
         
-            """
-            elif len(count_indices) < min_samples_per_count:
-                
-                oversampled_indices = np.random.choice(
-                    count_indices, 
-                    size=min_samples_per_count - len(count_indices), 
-                    replace=True,
-                ).tolist()
-                selected_indices = count_indices + oversampled_indices
-                print(f"Count {count_value}: Oversampled from {len(count_indices)} to {min_samples_per_count}")
-            """
-        
         else:
             
             selected_indices = count_indices
@@ -272,8 +257,7 @@ def split_dataset(
     split_data_dir: str = config.DATA_DIR, train_images_file: str = config.TRAIN_IMAGES_FILE,
     train_labels_file: str = config.TRAIN_LABELS_FILE, test_images_file: str = config.TEST_IMAGES_FILE,
     test_labels_file: str = config.TEST_LABELS_FILE, train_ratio: float = config.TRAIN_RATIO,
-    apply_resampling: bool = True, min_samples_per_count: int = config.MIN_SAMPLES_PER_COUNT,
-    max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT,
+    apply_resampling: bool = True, max_samples_per_count: int = config.MAX_SAMPLES_PER_COUNT,
 ) -> None:
     """
     Split data into training and testing sets with optional resampling.
@@ -294,8 +278,6 @@ def split_dataset(
         Proportion of data samples to use in training set.
     apply_resampling : bool, optional, default=True
         Whether to apply simple resampling to reduce overrepresented counts.
-    min_samples_per_count : int, optional, default=MIN_SAMPLES_PER_COUNT
-        Minimum samples per occupancy count when resampling.
     max_samples_per_count : int, optional, default=MAX_SAMPLES_PER_COUNT
         Maximum samples per occupancy count when resampling.
     
@@ -318,11 +300,10 @@ def split_dataset(
         images, labels = simple_resample_dataset(
             images=images,
             labels=labels,
-            min_samples_per_count=min_samples_per_count,
             max_samples_per_count=max_samples_per_count,
         )
     
-    # Get sample weights (rest of the function remains the same)
+    # Get sample weights
     y_min = float(labels.min()) - 1
     y_max = float(labels.max()) + 1
     sample_weights = list(1 - ((labels - y_min) / (y_max - y_min)))
@@ -403,11 +384,10 @@ def get_data_loader(
     
     # Define transforms
     train_transform = T.Compose([
-        T.RandomAdjustSharpness(random.uniform(0.8, 1.2), 0.15),
-        T.RandomAutocontrast(0.15),
+        T.RandomAdjustSharpness(random.uniform(0.8, 1.2), 0.1),
+        T.RandomAutocontrast(0.1),
         T.RandomHorizontalFlip(0.5),
-        T.RandomInvert(0.15),
-        #T.TrivialAugmentWide(),
+        T.RandomInvert(0.1),
         T.Resize((224, 224)),
         T.ToDtype(torch.float32),
         T.Normalize(

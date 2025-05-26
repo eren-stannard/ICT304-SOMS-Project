@@ -25,8 +25,7 @@ import torch
 # Data configuration
 SRC_DATA_DIR = os.path.join('ODS', 'datasets')
 APPLY_RESAMPLING = True
-MIN_SAMPLES_PER_COUNT = 50
-MAX_SAMPLES_PER_COUNT = 250
+MAX_SAMPLES_PER_COUNT = 200
 
 # Combined data cofigureation
 COMBINED_DATA_DIR = os.path.join('ODS', 'dataset')
@@ -46,8 +45,8 @@ MODEL_TYPE = 'cnn'
 # Training configuration
 BATCH_SIZE = 128
 NUM_EPOCHS = 30 # Changed from 20
-LEARNING_RATE = 0.5
-WEIGHT_DECAY = 0.00002
+LEARNING_RATE = 0.05
+WEIGHT_DECAY = 0.00001
 TRAIN_RATIO = 0.8
 
 ## Autoencoder configuration
