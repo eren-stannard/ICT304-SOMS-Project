@@ -18,61 +18,60 @@
 
 
 # Libraries used
-import mysql.connector
-import mysql.connector.types as mysqlt
-import pandas as pd
 import streamlit as st
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
 
+# FIles used
+from DB import database
+from DB.database import Database
 
-@st.cache_resource
-def init_connection() -> PooledMySQLConnection | MySQLConnectionAbstract:
-    """
-    Initialise connection to SOMS MySQL database.
-    
-    Returns
-    -------
-    conn : PooledMySQLConnection | MySQLConnectionAbstract
-        MySQL database connection.
-    """
-    
-    return mysql.connector.connect(**st.secrets.db_credentials)
 
+def main() -> None:
+    """Main entry point."""
+    
+    # Initialise database and connection
+    if 'database' not in st.session_state:
+        st.session_state.database = load_database()
+    
+    db = st.session_state.database
+    
+    if db.conn is None or not db.conn.is_connected():
+        db.reset_connection()
+
+    # Get input query
+    query = st.text_area(
+        label=":primary[:material/database_search:] Enter MySQL Query:",
+        height=220,
+        help="Query the SOMS database using MySQL statements",
+        placeholder="DESCRIBE occupancyrecords;\nSELECT * FROM occupancyrecords;",
+    )
+    autocommit = st.checkbox(label="Autocommit query", value=False)
+    
+    # Perform query and display results
+    if query:
+        results = db.query_database(query, commit=autocommit)
+        if results is not None:
+            for statement, result in results:
+                st.write(statement)
+                st.dataframe(result)
+    
+    return
+
+
+@st.cache_resource(ttl=600)
+def init_connection() -> MySQLConnectionAbstract | PooledMySQLConnection:
+    return database.init_connection()
+
+@st.cache_resource(ttl=600)
+def load_database() -> Database:
+    return Database(True)
 
 @st.cache_data(ttl=600)
-def run_query(query: str) -> list[mysqlt.RowType | dict[str, mysqlt.RowItemType]]:
-    """
-    Query SOMS database with MySQL query.
-    
-    Parameters
-    ----------
-    query : str
-        SQL query.
-    
-    Returns
-    -------
-    rows : list[RowType | dict[str, RowItemType]]
-        Result of query.
-    """
-    
-    # Connect to SOMS database
-    conn = init_connection()
-    
-    with conn.cursor(dictionary=True) as cur:
-        
-        cur.execute(query)
-        
-        return cur.fetchall()
+def run_query(query: str, commit: bool = False) -> None:
+    database.run_query(st.session_state.database.conn, query, commit=commit)
+    return
 
 
-# Get input query
-query = st.text_area("Enter SQL query:")
-
-if query:
-    
-    # Perform query
-    result = run_query(query)
-
-    # Print results
-    st.write(pd.DataFrame(result))
+if __name__ == '__main__':
+    main()

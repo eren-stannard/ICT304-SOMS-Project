@@ -64,8 +64,8 @@ st.set_page_config(
 # SOMS project home page
 home_page = create_page(
     page="pages/home_page.py",
-    title="SOMS",
-    subtitle="Smart Occupancy Monitoring System",
+    title="Smart Occupancy Monitoring System",
+    short_title="SOMS",
     icon=":material/monitoring:",
     default=True,
 )
@@ -74,39 +74,37 @@ home_page = create_page(
 team_page = create_page(
     page="pages/team_page.py",
     title="Project Team",
-    subtitle="Project Team Members Details",
     icon=":material/group:",
 )
 
 # AMS page
 ams_page = create_page(
     page="pages/ams_page.py",
-    title="AMS",
-    subtitle="Attendance Monitoring Sub-System",
+    title="Attendance Monitoring System",
+    short_title="AMS",
     icon=":material/video_camera_front:",
 )
 
 # ODS page
 ods_page = create_page(
     page="pages/ods_page.py",
-    title="ODS",
-    subtitle="Occupancy Detection AI Sub-System",
+    title="Occupancy Detection System",
+    short_title="ODS",
     icon=":material/detection_and_zone:",
 )
 
 # DVS page
 dvs_page = create_page(
     page="pages/dvs_page.py",
-    title="DVS",
-    subtitle="Data Visualisation Sub-System",
+    title="Data Visualisation System",
+    short_title="DVS",
     icon=":material/bar_chart_4_bars:",
 )
 
 # Database page
 db_page = create_page(
     page="pages/db_page.py",
-    title="Database",
-    subtitle="Occupancy Records",
+    title="MySQL Database",
     icon=":material/database:",
 )
 
@@ -114,15 +112,13 @@ db_page = create_page(
 docs_page = create_page(
     page="pages/docs_page.py",
     title="Documentation",
-    subtitle="System Functionality Reference",
     icon=":material/integration_instructions:",
 )
 
 # Datasets page
 data_page = create_page(
     page="pages/data_page.py",
-    title="Datasets",
-    subtitle="Data Sources and Listing",
+    title="Data Sources",
     icon=":material/dataset_linked:",
 )
 
@@ -130,7 +126,6 @@ data_page = create_page(
 sources_page = create_page(
     page="pages/sources_page.py",
     title="References",
-    subtitle="References and Acknowledgements",
     icon=":material/article_person:",
 )
 

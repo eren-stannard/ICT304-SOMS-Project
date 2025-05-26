@@ -44,8 +44,7 @@ class Page(StreamlitPage):
     """
     
     def __init__(
-        self, page: str, title: str | None = None, subtitle: str | None = None,
-        icon: str | None = None, default: bool = False,
+        self, page: str, title: str | None = None, short_title: str | None = None, icon: str | None = None, default: bool = False,
     ) -> None:
         """
         Page class constructor.
@@ -56,8 +55,8 @@ class Page(StreamlitPage):
             Path to page file.
         title : str | None, optional, default=None
             Title of page.
-        subtitle : str | None, optional, default=None
-            Optional subtitle of page to use as header.
+        short_title : str | None, optional, default=None
+            Optional short/abbreviated title of page to use.
         icon : str | None, optional, default=None
             Icon to use for page.
         default : bool, optional, default=False
@@ -72,26 +71,25 @@ class Page(StreamlitPage):
         )
         
         self.page_url = page
-        self.subtitle = subtitle
+        self.short_title = short_title
                 
         return
     
     
     def header(self) -> None:
-        """Display page title and subtitle if provided in `create_page` method."""
+        """Display page title and header in `create_page` method."""
         
-        st.title(f":primary[{self.icon}] {self.title}")
-        if self.subtitle is not None:
-            st.header(self.subtitle, divider='grey')
+        if self.short_title:
+            st.title(f":primary[{self.icon}] {self.short_title}")
+            st.header(self.title, divider='grey')
         else:
-            st.divider()
+            st.title(f":primary[{self.icon}] {self.title}")
         
         return
 
 
 def create_page(
-    page: str, title: str | None = None, subtitle: str | None = None,
-    icon: str | None = None, default: bool = False,
+    page: str, title: str | None = None, short_title: str | None = None, icon: str | None = None, default: bool = False,
 ) -> Page:
     """
     Create a new Streamlit page.
@@ -102,8 +100,8 @@ def create_page(
         Path to page file.
     title : str | None, optional, default=None
         Title of page.
-    subtitle : str | None, optional, default=None
-        Optional subtitle of page to use as header.
+    short_title : str | None, optional, default=None
+        Optional short/abbreviated title of page to use.
     icon : str | None, optional, default=None
         Icon to use for page.
     default : bool, optional, default=False
@@ -120,12 +118,10 @@ def create_page(
         [[source]](https://github.com/streamlit/streamlit/blob/1.45.0/lib/streamlit/navigation/page.py#L29)
     """
     
-    page = Page(
+    return Page(
         page=page,
         title=title,
-        subtitle=subtitle,
+        short_title=short_title,
         icon=icon,
         default=default,
     )
-    
-    return page

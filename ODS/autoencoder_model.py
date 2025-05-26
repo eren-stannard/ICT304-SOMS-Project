@@ -209,7 +209,7 @@ def load_model(model_path: str = config.MODEL_PATH, show_log: bool = True) -> Au
     
     # Create model
     model = AutoencoderModel(latent_dim=config.AUTOENCODER_LATENT_DIM)
-
+    
     # Try to load weights
     try:
         model.load_state_dict(torch.load(model_path, map_location=model.device, mmap=True))

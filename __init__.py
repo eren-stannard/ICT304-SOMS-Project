@@ -21,4 +21,6 @@
 import sys
 import os
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'AMS')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'DB')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ODS')))

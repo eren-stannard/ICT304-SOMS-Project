@@ -1,1 +1,2 @@
 libgl1
+v4l-utils
