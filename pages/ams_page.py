@@ -77,6 +77,19 @@ class AttendanceMonitor:
         # Open camera
         self.cap = cv2.VideoCapture(self.camera_id)
         if not self.cap.isOpened():
+            try:
+                for id in range(-1, 10):
+                    self.cap.release()
+                    self.cap = None
+                    print(f"Trying camera_id {id}...")
+                    self.cap = cv2.VideoCapture(id)
+                    if self.cap.isOpened():
+                        print("Success!")
+                        self.camera_id = id
+                        break
+            except:
+                st.error("Failed to locate camera")
+            
             return False
         
         # Camera settings
@@ -189,7 +202,7 @@ def load_model(model_type: str = config.MODEL_TYPE) -> AutoencoderModel | CNNMod
 def camera_stream() -> None:
     """Camera stream fragment. Updates independently from rest of script."""
     
-    if 'monitor' not in st.session_state or st.session_state.get('camera_active', False) is False:
+    if 'monitor' not in st.session_state or st.session_state.camera_active == False:
         st.container(height=300, border=True).write(":grey[Start camera to begin monitoring]")
         return
     
