@@ -108,25 +108,11 @@ db_page = create_page(
     icon=":material/database:",
 )
 
-# Code documentation page
-docs_page = create_page(
-    page="pages/docs_page.py",
-    title="Documentation",
-    icon=":material/integration_instructions:",
-)
-
 # Datasets page
 data_page = create_page(
     page="pages/data_page.py",
     title="Data Sources",
     icon=":material/dataset_linked:",
-)
-
-# References page
-sources_page = create_page(
-    page="pages/sources_page.py",
-    title="References",
-    icon=":material/article_person:",
 )
 
 
@@ -146,8 +132,7 @@ pg = st.navigation(
             db_page,
         ],
         "Resources": [
-            #data_page,
-            sources_page,
+            data_page,
         ],
     },
 )

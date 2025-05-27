@@ -56,8 +56,6 @@ def main() -> None:
             for statement, result in results:
                 st.write(statement)
                 st.dataframe(result)
-                if not result.empty:
-                    st.plotly_chart(px.line(result, x='Timestamp', y='OccupancyCount', title="Occupancy Records Over Time"))
     
     return
 

@@ -18,7 +18,6 @@
 
 
 # Libraries used
-import cv2
 import streamlit as st
 import torch
 import torchvision.transforms.v2 as T

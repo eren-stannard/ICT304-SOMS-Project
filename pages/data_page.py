@@ -21,50 +21,130 @@
 import streamlit as st
 
 
-# Mall Dataset
-st.subheader("Mall Dataset [:material/open_in_new:]", divider='grey')
-st.write("##### Dataset Structure")
-st.code(
+def subheader_link(body: str, url: str) -> None:
     """
-        archive/
-        | --- frames/
-        | | --- frames/          # Images (.jpg)
-        | | | --- seq_1.jpg
-        | | | --- ∙∙∙
-        | | | --- seq_2000.jpg
-        | --- labels.csv         # Labels (.csv)
+    Display subheader for dataset and a link button to its Kaggle source page.
+    
+    Parameters
+    ----------
+    body : str
+        Subheader body text (name of dataset).
+    url : str
+        Link to Kaggle source page for dataset.
+    """
+    
+    st.subheader(body, divider='grey')
+    col1, col2 = st.columns([3, 1], vertical_alignment='bottom')
+    
+    with col1:
+        st.write("##### :primary[:material/folder_info:] Dataset Structure")
+    with col2:
+        st.link_button("Kaggle", url, icon=":material/dataset_linked:", use_container_width=True)
+    
+    return
+
+
+# Mall Dataset
+subheader_link(
+    "Mall Dataset",
+    "https://www.kaggle.com/datasets/chaozhuang/mall-dataset",
+)
+st.container(border=True).write(
+    """
+        > :material/folder_open: archive  
+        >> :material/folder: images  
+        >>> :material/image: seq_1.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: seq_2000.jpg\n
+        >> :material/view_column: labels.csv
     """,
-    #language=None,
+)
+
+# Count the Number of Faces Present in an Image
+subheader_link(
+    "Count the Number of Faces Present in an Image",
+    "https://www.kaggle.com/datasets/vin1234/count-the-number-of-faces-present-in-an-image",
+)
+st.container(border=True).write(
+    """
+        > :material/folder_open: count_faces  
+        >> :material/folder: images  
+        >>> :material/image: seq_1.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: seq_2000.jpg\n
+        >> :material/view_column: labels.csv
+    """,
+)
+
+# 3DHBD (3D Humanix Blender Dataset)
+subheader_link(
+    "3DHBD (3D Humanix Blender Dataset)",
+    "https://www.kaggle.com/datasets/hamzaiqbal01/3dhbd-3d-humanix-blender-dataset",
+)
+st.container(border=True).write(
+    """
+        > :material/folder_open: Dataset  
+        >> :material/folder: images  
+        >>> :material/image: <img_1>.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: <img_542>.jpg\n
+        >> :material/folder:  labels  
+        >>> :material/article: <img_1>.txt  
+        >>> :material/article: ∙∙∙  
+        >>> :material/article: <img_542>.txt
+    """,
+)
+
+# Classroom Images Or Hand Raised Detection Dataset
+subheader_link(
+    "Classroom Images Or Hand Raised Detection Dataset",
+    "https://www.kaggle.com/datasets/piyushchakarborthy/classroom-images-or-hand-raised-detection-dataset",
+)
+st.container(border=True).write(
+    """
+        > :material/folder_open: handraised  
+        >> :material/folder: images  
+        >>> :material/image: <img_1>.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: <img_542>.jpg\n
+        >> :material/folder:  labels  
+        >>> :material/article: <img_1>.txt  
+        >>> :material/article: ∙∙∙  
+        >>> :material/article: <img_542>.txt
+    """,
 )
 
 # Human Crowd Detection Dataset
-st.subheader("Human Crowd Detection Dataset", divider='grey')
-st.write("##### Dataset Structure")
-st.code(
+subheader_link(
+    "Human Crowd Detection Dataset",
+    "https://www.kaggle.com/datasets/salmanshakil97/human-crowd-detection?resource=download",
+)
+st.container(border=True).write(
     """
-        NewData/
-        | --- images/
-        | | --- training/        # Images (.jpg), Labels (.txt)
-        | | | --- <img_1>.jpg
-        | | | --- <img_1>.txt
-        | | | --- ∙∙∙
-        | | | --- <img_542>.jpg
-        | | | --- <img_542>.txt
+        > :material/folder_open: NewData  
+        >> :material/folder: images  
+        >>> :material/image: <img_1>.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: <img_542>.jpg\n
+        >> :material/folder:  labels  
+        >>> :material/article: <img_1>.txt  
+        >>> :material/article: ∙∙∙  
+        >>> :material/article: <img_542>.txt
     """,
-    #language=None,
 )
 
 # Complex Indoor Environment Synthetic Dataset
-st.subheader("Complex Indoor Environment Synthetic Dataset", divider='grey')
-st.write("##### Dataset Structure")
-st.code(
+subheader_link(
+    "MIT Indoor Scenes",
+    "https://www.kaggle.com/datasets/itsahmad/indoor-scenes-cvpr-2019",
+)
+st.container(border=True).write(
     """
-        synthetic_no_people/
-        | --- frames/            # Images (.jpg)
-        | | --- synth_1.jpg
-        | | --- ∙∙∙
-        | | --- synth_42.jpg
-        | --- labels.csv         # Labels (.csv)
+        > :material/folder_open: synthetic  
+        >> :material/folder: images  
+        >>> :material/image: <img_1>.jpg  
+        >>> :material/image: ∙∙∙  
+        >>> :material/image: <img_227>.jpg\n
+        >> :material/view_column: labels.csv
     """,
-    #language=None,
 )

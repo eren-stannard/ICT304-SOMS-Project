@@ -70,7 +70,7 @@ class Page(StreamlitPage):
             default=default,
         )
         
-        self.page_url = page
+        self.page = page
         self.short_title = short_title
                 
         return
