@@ -221,6 +221,7 @@ def prediction_mode(**kwargs) -> None:
     if not pred_mode:
         return
     
+    # Predict occupancy from uploaded image file
     if pred_mode == 'image':
         
         img_file = st.file_uploader(
@@ -242,10 +243,10 @@ def prediction_mode(**kwargs) -> None:
                     with st.spinner("Predicting occupancy..."):
                         forward_ods(**kwargs)
     
+    # Predict from camera capture frame
     elif pred_mode == 'camera':
-        if st.button("Open Camera", type='primary', icon=":material/camera"):
-            kwargs['camera'] = True
-            forward_ods(**kwargs)
+        kwargs['camera'] = True
+        forward_ods(**kwargs)
 
     return
 

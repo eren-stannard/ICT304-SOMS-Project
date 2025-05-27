@@ -29,9 +29,9 @@ with st.container(border=True):
     st.write(
         """
             **:primary[:material/assured_workload:] Workload Contribution:**
-            > * Task...
-            > * Task...
-            > * Task...
+            > * AI Techniques investigation
+            > * Systems Engineering Product Life Cycle
+            > * Database creation and adiministration
         """
     )
 
@@ -41,9 +41,9 @@ with st.container(border=True):
     st.write(
         """
             **:primary[:material/assured_workload:] Workload Contribution:**
-            > * Task...
-            > * Task...
-            > * Task...
+            > * Prototype development
+            > * Model optimisation and performance evaluation methods
+            > * Data pre-processing
         """
     )
 
@@ -53,8 +53,8 @@ with st.container(border=True):
     st.write(
         """
             **:primary[:material/assured_workload:] Workload Contribution:**
-            > * Task...
-            > * Task...
-            > * Task...
+            > * System architecture and requirements
+            > * Client application
+            > * Internal documentation
         """
     )

@@ -18,7 +18,6 @@
 
 
 # Libraries used
-import mysql.connector.types as mysqlt
 import numpy as np
 import streamlit as st
 from mysql.connector.abstracts import MySQLConnectionAbstract

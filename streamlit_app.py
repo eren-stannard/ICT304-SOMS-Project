@@ -142,10 +142,11 @@ pg = st.navigation(
         "Sub-Systems and Components": [
             ams_page,
             ods_page,
+            dvs_page,
             db_page,
         ],
         "Resources": [
-            data_page,
+            #data_page,
             sources_page,
         ],
     },

@@ -131,12 +131,20 @@ def plot_results(results: dict[str, float | int], model_name: str) -> None:
     """
 
     # Extract data
-    results_df = pd.DataFrame(
-        data={
-            'True Count': results['true_counts'],
-            'Predicted Count': results['predicted_counts'],
-        },
-    )
+    if 'true_counts' in results.keys():
+        results_df = pd.DataFrame(
+            data={
+                'True Count': results['true_counts'],
+                'Predicted Count': results['predicted_counts'],
+            },
+        )
+    else:
+        results_df = pd.DataFrame(
+            data={
+                'True Count': results['True Count'],
+                'Predicted Count': results['Predicted Count'],
+            },
+        )
     results_df['Error'] = abs(results_df['True Count'] - results_df['Predicted Count'])
     
     # Display metrics

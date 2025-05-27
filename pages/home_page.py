@@ -28,16 +28,19 @@ option_map = {
     "pages/ods_page.py": [":primary[:material/detection_and_zone:] ODS", "Occupancy Detection AI Sub-System"],
     "pages/dvs_page.py": [":primary[:material/bar_chart_4_bars:] DVS", "Data Visualisation Sub-System"],
     "pages/db_page.py": [":primary[:material/database:] DB", "Database"],
-    "pages/docs_page.py": [":primary[:material/api:] Docs", "Documentation"],
-    "pages/data_page.py": [":primary[:material/dataset_linked:] Data", "Datasets details"],
+    #"pages/docs_page.py": [":primary[:material/api:] Docs", "Documentation"],
+    #"pages/data_page.py": [":primary[:material/dataset_linked:] Data", "Datasets details"],
     "pages/sources_page.py": [":primary[:material/format_quote:] Sources", "References and acknowledgements"],
 }
-page = st.pills(
-    label="Pages:",
-    options=option_map.keys(),
-    format_func=lambda option: option_map[option][0],
-    help="  \n".join([": ".join(option) for option in option_map.values()]),
-    label_visibility='collapsed',
-)
-if page is not None:
-    st.switch_page(page)
+_, col, _ = st.columns([3, 11, 3])
+
+with col:
+    page = st.pills(
+        label="Pages:",
+        options=option_map.keys(),
+        format_func=lambda option: option_map[option][0],
+        help="  \n".join([": ".join(option) for option in option_map.values()]),
+        label_visibility='collapsed',
+    )
+    if page is not None:
+        st.switch_page(page)

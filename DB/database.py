@@ -24,7 +24,6 @@ import pandas as pd
 import streamlit as st
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
-from typing import Any
 
 
 class Database:
